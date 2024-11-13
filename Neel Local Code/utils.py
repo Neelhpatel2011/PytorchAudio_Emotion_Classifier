@@ -119,14 +119,14 @@ class Emotion_Classification_Dataset(Dataset):
         gender_label = self.metadata_df.iloc[idx]['Gender']
         intensity = self.metadata_df.iloc[idx]['Emotional Intensity']
 
-        step1_time = time.time()
-        print(f"Step 1 (Fetching metadata): {step1_time - start_time:.4f} seconds")
+        # step1_time = time.time()
+        # print(f"Step 1 (Fetching metadata): {step1_time - start_time:.4f} seconds")
         
         # Load audio file (torchaudio returns waveform and sample rate)
         waveform, sample_rate = torchaudio.load(file_path)
         
-        step2_time = time.time()
-        print(f"Step 2 (Loading audio): {step2_time - step1_time:.4f} seconds")
+        # step2_time = time.time()
+        # print(f"Step 2 (Loading audio): {step2_time - step1_time:.4f} seconds")
 
         
         waveform = waveform.to(device)
@@ -134,29 +134,40 @@ class Emotion_Classification_Dataset(Dataset):
         #Resample the data
         #waveform = self.resample_if_necessary(waveform, sample_rate) 
         
-        step3_time = time.time()
-        print(f"Step 3 (Resampling): {step3_time - step2_time:.4f} seconds")
+        # step3_time = time.time()
+        # print(f"Step 3 (Resampling): {step3_time - step2_time:.4f} seconds")
 
 
         #Pad the data to make the same length
         if self.same_length_all and self.target_length is not None:
             waveform = self.pad_or_trim_waveform(waveform, self.target_length)
             
-        step4_time = time.time()
-        print(f"Step 4 (Padding/Trimming): {step4_time - step3_time:.4f} seconds")
+        # step4_time = time.time()
+        # print(f"Step 4 (Padding/Trimming): {step4_time - step3_time:.4f} seconds")
 
         #waveform.cpu()
         waveform_feature_dict = {'original waveform':waveform}
         
-        # Extract features based on transformations
+        # # Extract features based on transformations
+        # if self.transformations:
+        #     #waveform = waveform.to(device)
+        #     for transformation in self.transformations:
+        #         waveform_feature = transformation(waveform)
+        #         waveform_feature_dict[transformation.__class__.__name__] = waveform_feature#.cpu()
+        
         if self.transformations:
-            #waveform = waveform.to(device)
-            for transformation in self.transformations:
-                waveform_feature = transformation(waveform)
-                waveform_feature_dict[transformation.__class__.__name__] = waveform_feature#.cpu()
-                
-        step5_time = time.time()
-        print(f"Step 5 (Transformations): {step5_time - step4_time:.4f} seconds")
+            for feature_name, transformation in self.transformations.items():
+                feature = transformation(waveform)
+                # Convert feature to tensor if needed and move to the appropriate device
+                if isinstance(feature, np.ndarray):
+                    feature = torch.tensor(feature, device=device)
+
+                waveform_feature_dict[feature_name] = feature
+
+
+
+        # step5_time = time.time()
+        # print(f"Step 5 (Transformations): {step5_time - step4_time:.4f} seconds")
 
         # Convert labels to tensors or numerical values
         emotion_mapping = {
@@ -166,18 +177,19 @@ class Emotion_Classification_Dataset(Dataset):
         gender_mapping = {"male": 0, "female": 1}
         intensity_mapping = {"low": 0, "medium": 1, "high": 2, "unknown": 3}
 
-        step6_time = time.time()
-        print(f"Step 6 (Label conversion): {step6_time - step5_time:.4f} seconds")
+        # step6_time = time.time()
+        # print(f"Step 6 (Label conversion): {step6_time - step5_time:.4f} seconds")
 
 
         emotion_tensor = torch.tensor(emotion_mapping[emotion_label])
         gender_tensor = torch.tensor(gender_mapping[gender_label])
-        intensity_tensor = torch.tensor(intensity_mapping[intensity])
+
+        #intensity_tensor = torch.tensor(intensity_mapping[intensity])
+
         # You can return the labels as part of a dictionary
         sample = {'waveform_features': waveform_feature_dict, 
                   'emotion': emotion_tensor, 
                   'gender': gender_tensor,
-                  'intensity': intensity_tensor,
                   'sample rate':torch.tensor(sample_rate)}
 
         total_time = time.time()
@@ -198,21 +210,6 @@ class Emotion_Classification_Dataset(Dataset):
             waveform = waveform[:, :target_length]
 
         return waveform
-    
-    #WE ALREADY RESAMPLED IN THE NOTEBOOK!
-    # def resample_if_necessary(self, waveform, sr):
-    #     if sr != self.target_sr:
-    #         resampler = torchaudio.transforms.Resample(sr, self.target_sr)
-    #         waveform = resampler(waveform) 
-            
-    #     return waveform
-
-    def resample_if_necessary(self, waveform, sr):
-        if sr != self.target_sr:
-            resampler = torchaudio.transforms.Resample(sr, self.target_sr)#.to(device) # Move to GPU
-            waveform = resampler(waveform)
-        return waveform
-
 
 #not in the dataloader class btw....
 def load_dataset(metadata_df,
@@ -240,14 +237,15 @@ def load_dataset(metadata_df,
                                                 target_sr = 24414)
         
 
-        # dataloader = DataLoader(combined_dataset, 
-        #                         batch_size=16, 
-        #                         shuffle=True,  
-        #                         num_workers = 1)#,persistent_workers=True)
-
         dataloader = DataLoader(combined_dataset, 
                                 batch_size=16, 
-                                shuffle=True)
+                                shuffle=True,  
+                                num_workers = 4,
+                                persistent_workers=True)
+
+        # dataloader = DataLoader(combined_dataset, 
+        #                         batch_size=16, 
+        #                         shuffle=True)
         
     else:
         combined_dataset = Emotion_Classification_Dataset(metadata_df=metadata_df,
@@ -263,42 +261,53 @@ def load_dataset(metadata_df,
     return dataloader
 
 # Function to compute Mel Spectrogram without any data manipulation (for CNN use)
-def extract_mel_spectrogram(waveform, sample_rate, n_fft = 1024, hop_length = 512, n_mels = 128):
+def extract_mel_spectrogram(waveform, sample_rate = 24414, n_fft = 1024, hop_length = 512, n_mels = 64):
     mel_transform = torchaudio.transforms.MelSpectrogram(
         sample_rate=sample_rate, n_fft=n_fft, hop_length=hop_length, n_mels=n_mels
     ).to(waveform.device)  # Move transform to device (CPU or GPU)
-    mel_spec = mel_transform(waveform)
+    mel_spec = mel_transform(waveform).float()
     return mel_spec
 
 # Function to compute MFCC features
-def extract_mfcc(waveform, sample_rate, n_mfcc=13, melkwargs = {"n_fft": 1024, "hop_length": 512, "n_mels": 64}):
+def extract_mfcc(waveform, sample_rate = 24414, n_mfcc=13, melkwargs = {"n_fft": 1024, "hop_length": 512, "n_mels": 64}):
     mfcc_transform = torchaudio.transforms.MFCC(
         sample_rate=sample_rate, n_mfcc=n_mfcc, melkwargs=melkwargs).to(waveform.device)  # Move transform to device (CPU or GPU)
-    mfccs = mfcc_transform(waveform)
+    mfccs = mfcc_transform(waveform).float()
     return mfccs
 
 # Function to compute Zero-Crossing Rate (ZCR)
 def extract_zero_crossing_rate(waveform):
-    zcr = ((waveform[:, 1:] * waveform[:, :-1] < 0).sum(dim=1).float())/waveform.shape[1]
-    return zcr
+    # zcr = ((waveform[:, 1:] * waveform[:, :-1] < 0).sum(dim=1).float())/waveform.shape[1]
+    # return zcr
+    waveform.cpu()
+    zcr = librosa.feature.zero_crossing_rate(waveform, frame_length=2048, hop_length=512)
+    zcr = zcr.flatten()
+    return torch.tensor(zcr,dtype=torch.float32, device=waveform.device)
 
 # Function to compute Harmonic-to-Noise Ratio (HNR) using torchaudio (approximation)
 def extract_hnr(waveform):
-    harmonic = torchaudio.functional.harmonic_percussive_separation(waveform)[0]  # Harmonic part
-    percussive = torchaudio.functional.harmonic_percussive_separation(waveform)[1]  # Percussive part
-    hnr = harmonic / (percussive + 1e-6)  # Avoid division by zero
-    hnr_mean = torch.mean(hnr)
-    hnr_std = torch.std(hnr)
-    return hnr, hnr_mean, hnr_std
+    waveform.cpu()
+    harmonic = librosa.effects.harmonic(y=waveform)
+    percussive = librosa.effects.percussive(y=waveform)
+    hnr_mean = torch.tensor(np.mean(harmonic / (percussive + 1e-6)),dtype=torch.float32, device=waveform.device).unsqueeze(0)
+    return hnr_mean
 
-# Function to compute Chroma Features using ChromaSpectrogram
-def extract_chroma(waveform, sample_rate):
-    chroma_transform = torchaudio.prototype.transforms.ChromaSpectrogram(
-        sample_rate=sample_rate,
-        n_fft=1024,          # Example values; adjust as needed
-        hop_length=512,
-        n_chroma=12,       # Typical chroma count
-        window_fn=torch.hann_window
-    ).to(waveform.device)  # Ensure it is on the same device (e.g., GPU)
-    chroma = chroma_transform(waveform)
-    return chroma
+def extract_rms(waveform):
+    waveform.cpu()
+    rms = librosa.feature.rms(y=waveform, frame_length=2048, hop_length=512)
+    rms = rms.flatten()
+    rms_tensor = torch.tensor(rms, dtype=torch.float32, device=waveform.device)
+    return rms_tensor
+
+
+# # Function to compute Chroma Features using ChromaSpectrogram
+# def extract_chroma(waveform, sample_rate):
+#     chroma_transform = torchaudio.prototype.transforms.ChromaSpectrogram(
+#         sample_rate=sample_rate,
+#         n_fft=1024,          # Example values; adjust as needed
+#         hop_length=512,
+#         n_chroma=12,       # Typical chroma count
+#         window_fn=torch.hann_window
+#     ).to(waveform.device)  # Ensure it is on the same device (e.g., GPU)
+#     chroma = chroma_transform(waveform)
+#     return chroma
