@@ -36,8 +36,6 @@ if torch.cuda.is_available():
     device = "cuda"
 else:
     device = "cpu"
-   
-print(f'Using {device}') 
 
 # Set seeds for reproducibility
 SEED = 42
@@ -192,8 +190,8 @@ class Emotion_Classification_Dataset(Dataset):
                   'gender': gender_tensor,
                   'sample rate':torch.tensor(sample_rate)}
 
-        total_time = time.time()
-        print(f"Total time for __getitem__: {total_time - start_time:.4f} seconds")
+        # total_time = time.time()
+        # print(f"Total time for __getitem__: {total_time - start_time:.4f} seconds")
         
         return sample
     
@@ -240,7 +238,7 @@ def load_dataset(metadata_df,
         dataloader = DataLoader(combined_dataset, 
                                 batch_size=16, 
                                 shuffle=True,  
-                                num_workers = 4,
+                                num_workers = 1,
                                 persistent_workers=True)
 
         # dataloader = DataLoader(combined_dataset, 
@@ -279,35 +277,25 @@ def extract_mfcc(waveform, sample_rate = 24414, n_mfcc=13, melkwargs = {"n_fft":
 def extract_zero_crossing_rate(waveform):
     # zcr = ((waveform[:, 1:] * waveform[:, :-1] < 0).sum(dim=1).float())/waveform.shape[1]
     # return zcr
-    waveform.cpu()
+    waveform = waveform.detach().cpu().numpy()
+    
     zcr = librosa.feature.zero_crossing_rate(waveform, frame_length=2048, hop_length=512)
     zcr = zcr.flatten()
-    return torch.tensor(zcr,dtype=torch.float32, device=waveform.device)
+    return torch.tensor(zcr,dtype=torch.float32, device='cuda' if torch.cuda.is_available() else 'cpu')
 
 # Function to compute Harmonic-to-Noise Ratio (HNR) using torchaudio (approximation)
 def extract_hnr(waveform):
-    waveform.cpu()
+    waveform = waveform.detach().cpu().numpy()
+
     harmonic = librosa.effects.harmonic(y=waveform)
     percussive = librosa.effects.percussive(y=waveform)
-    hnr_mean = torch.tensor(np.mean(harmonic / (percussive + 1e-6)),dtype=torch.float32, device=waveform.device).unsqueeze(0)
+    hnr_mean = torch.tensor(np.mean(harmonic / (percussive + 1e-6)),dtype=torch.float32, device='cuda' if torch.cuda.is_available() else 'cpu').unsqueeze(0)
     return hnr_mean
 
 def extract_rms(waveform):
-    waveform.cpu()
+    waveform = waveform.detach().cpu().numpy()
+
     rms = librosa.feature.rms(y=waveform, frame_length=2048, hop_length=512)
     rms = rms.flatten()
-    rms_tensor = torch.tensor(rms, dtype=torch.float32, device=waveform.device)
+    rms_tensor = torch.tensor(rms, dtype=torch.float32, device='cuda' if torch.cuda.is_available() else 'cpu')
     return rms_tensor
-
-
-# # Function to compute Chroma Features using ChromaSpectrogram
-# def extract_chroma(waveform, sample_rate):
-#     chroma_transform = torchaudio.prototype.transforms.ChromaSpectrogram(
-#         sample_rate=sample_rate,
-#         n_fft=1024,          # Example values; adjust as needed
-#         hop_length=512,
-#         n_chroma=12,       # Typical chroma count
-#         window_fn=torch.hann_window
-#     ).to(waveform.device)  # Ensure it is on the same device (e.g., GPU)
-#     chroma = chroma_transform(waveform)
-#     return chroma
