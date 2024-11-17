@@ -271,6 +271,7 @@ def extract_mfcc(waveform, sample_rate = 24414, n_mfcc=13, melkwargs = {"n_fft":
     mfcc_transform = torchaudio.transforms.MFCC(
         sample_rate=sample_rate, n_mfcc=n_mfcc, melkwargs=melkwargs).to(waveform.device)  # Move transform to device (CPU or GPU)
     mfccs = mfcc_transform(waveform).float()
+    mfccs = torch.mean(mfccs, dim = 2)
     return mfccs
 
 # Function to compute Zero-Crossing Rate (ZCR)

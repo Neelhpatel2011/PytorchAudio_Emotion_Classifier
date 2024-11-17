@@ -86,6 +86,13 @@ if __name__ == "__main__":
         genders = batch['gender']
         sample_rate = batch['sample rate']
         print(len(waveforms), emotions, genders, sample_rate)
+
+        print(f"Length of waveform dict is {len(waveforms)}")
+        print(f"Length of mel spectrogram is {waveforms['Mel Spectrogram'].shape}")
+        print(f"Length of MFCC is {waveforms['MFCC'].shape}")
+        print(f"Length of Zero Crossing Rate {waveforms['Zero Crossing Rate'].shape}")
+        print(f"Length of HNR is {waveforms['HNR'].shape}")
+        print(f"Length of RMS is {waveforms['RMS'].shape}")
         break
 
 
