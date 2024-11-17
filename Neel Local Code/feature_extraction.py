@@ -84,7 +84,7 @@ def extract_features(waveform):
     result = torch.cat((mfcc_result.squeeze(0), zcr_result, hnr_result, rms_result), dim=0)
     return result
 
-def process_audio_files(data_df, base_path):
+def process_audio_files_train(data_df, base_path):
     mel_spectrograms_list = []
     features_list = []
     metadata_list = []
@@ -111,26 +111,61 @@ def process_audio_files(data_df, base_path):
         })
     return np.array(mel_spectrograms_list), np.array(features_list), metadata_list
 
+def process_audio_files_test(data_df, base_path):
+    mel_spectrograms_list = []
+    features_list = []
+    metadata_list = []
+
+    for index, file in tqdm(data_df.iterrows(), total=len(data_df), desc="Processing audio files"):
+        #file_path = os.path.join(base_path, file['Filepath'])
+
+        filepath = file['Filepath']
+        print(filepath)
+        path_parts = filepath.split("/")
+        start_index = path_parts.index('speech-emotion-recognition-en')  # Finding the starting index of your desired folder
+        # Add 'Data' and join the remaining parts
+        desired_path = os.path.join('Data', *path_parts[start_index:])
+
+        waveform, sample_rate = torchaudio.load(desired_path)
+
+        #First get the first 3 seconds of the audio
+        waveform = pad_or_trim_waveform(waveform,target_length=24414*3)
+        waveform = waveform.to(device)
+
+        mel_spec = extract_mel_spectrogram(waveform).cpu().numpy()
+        features = extract_features(waveform).cpu().numpy()  # Convert to numpy array
+
+        # Collect features and metadata
+        mel_spectrograms_list.append(mel_spec)
+        features_list.append(features)
+        metadata_list.append({
+            'Filename': file['Filename'],
+            'Filepath': desired_path,
+            'Gender': file['Gender'],
+            'Emotion': file['Emotion']
+        })
+    return np.array(mel_spectrograms_list), np.array(features_list), metadata_list
+
 
 #Get the training features
 data_path = 'Data/metadata-and-augmentations/'
-augmented_training_df = pd.read_csv(data_path+'augmented_training_df.csv')
+# augmented_training_df = pd.read_csv(data_path+'augmented_training_df.csv')
 
-mel_specs_train, features_train, metadata_train = process_audio_files(augmented_training_df, data_path)
+# mel_specs_train, features_train, metadata_train = process_audio_files_train(augmented_training_df, data_path)
 
-metadata_train_array = np.array([
-    (meta['Filename'], meta['Filepath'], meta['Gender'], meta['Emotion'])
-    for meta in metadata_train
-], dtype=[('Filename', 'U256'), ('Filepath', 'U256'), ('Gender', 'U10'), ('Emotion', 'U10')])
+# metadata_train_array = np.array([
+#     (meta['Filename'], meta['Filepath'], meta['Gender'], meta['Emotion'])
+#     for meta in metadata_train
+# ], dtype=[('Filename', 'U256'), ('Filepath', 'U256'), ('Gender', 'U10'), ('Emotion', 'U10')])
 
-np.save(r'Data/mel_spectrograms_training.npy', mel_specs_train)
-np.save(r'Data/training_features.npy', features_train)
-np.save(r'Data/training_metadata.npy', metadata_train_array)
+# np.save(r'Data/mel_spectrograms_training.npy', mel_specs_train)
+# np.save(r'Data/training_features.npy', features_train)
+# np.save(r'Data/training_metadata.npy', metadata_train_array)
 
 #Get the testing features
 
 testing_df = pd.read_csv(data_path+'testing_df.csv')
-mel_specs_test, features_test, metadata_test= process_audio_files(testing_df, data_path)
+mel_specs_test, features_test, metadata_test= process_audio_files_test(testing_df, data_path)
 
 metadata_test_array = np.array([
     (meta['Filename'], meta['Filepath'], meta['Gender'], meta['Emotion'])
