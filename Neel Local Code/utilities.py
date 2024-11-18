@@ -26,6 +26,7 @@ import torchaudio
 from torch.nn.utils.rnn import pad_sequence
 import torch.nn.functional as F
 import torchaudio.transforms as T
+from torchaudio.functional import amplitude_to_DB
 from sklearn.model_selection import train_test_split
 
 import torch.multiprocessing as mp
@@ -80,7 +81,6 @@ def same_length_batch(batch):
             'sample rate':sample_rate}
 
 #Create the custom pytorch dataset
-
 class Emotion_Classification_Dataset(Dataset):
     def __init__(self, metadata_df, 
                  transformations=None, 
@@ -173,7 +173,7 @@ class Emotion_Classification_Dataset(Dataset):
             "fear": 4, "disgust": 5, "surprised": 6
         }
         gender_mapping = {"male": 0, "female": 1}
-        intensity_mapping = {"low": 0, "medium": 1, "high": 2, "unknown": 3}
+        
 
         # step6_time = time.time()
         # print(f"Step 6 (Label conversion): {step6_time - step5_time:.4f} seconds")
@@ -208,54 +208,101 @@ class Emotion_Classification_Dataset(Dataset):
             waveform = waveform[:, :target_length]
 
         return waveform
+    
+class Emotion_Classification_Waveforms(Dataset):
+    def __init__(self, waveforms_dict,
+                 metadata_df,
+                 device = device):
+        """
+        Args:
+
+        """
+        self.metadata_df = metadata_df
+        self.waveforms_dict = waveforms_dict
+        self.device = device
+
+    def __len__(self):
+        return len(self.metadata_df)
+
+    def __getitem__(self, idx):
+        emotion_mapping = {
+            "neutral": 0, "happy": 1, "sad": 2, "angry": 3,
+            "fear": 4, "disgust": 5, "surprised": 6
+        }
+
+        gender_mapping = {"male": 0, "female": 1}
+
+        emotion_label = self.metadata_df.iloc[idx]['Emotion']
+        gender_label = self.metadata_df.iloc[idx]['Gender']
+        file_name = self.metadata_df.iloc[idx]['Filename']
+
+        emotion_tensor = torch.tensor(emotion_mapping[emotion_label], device=self.device)
+        gender_tensor = torch.tensor(gender_mapping[gender_label], device=self.device)
+
+        waveform_data = {}
+        for keys,values in self.waveforms_dict.items():
+            if keys == 'Mel Spectrogram':
+                mel_spec = self.waveforms_dict['Mel Spectrogram'][idx]
+                mel_spec_db = mel_spec_to_db(mel_spec_array=mel_spec, device = self.device)
+                waveform_data[keys] = mel_spec_db
+            else:
+                features = self.waveforms_dict[keys][idx]
+                waveform_data[keys] = features
+        
+
+        return {
+            'waveform_data': waveform_data,
+            'emotion': emotion_tensor,
+            'gender': gender_tensor,
+            'filename': file_name
+        }
+
+
 
 #not in the dataloader class btw....
-def load_dataset(metadata_df,
+def load_dataset(metadata_df, 
+                 waveforms_preloaded = True,
+                 waveforms_dict = None,
                  same_length_all = True,
                  sample_rate = 24414,
                  seconds_of_audio = 3,
-                transformations = None):
-
-    # def worker_init_fn(worker_id):
-    #     random.seed(SEED)
-    #     np.random.seed(SEED)
+                transformations = None,
+                device = device):
     
-    if same_length_all:
-        
-        #max length of our audio dataset (without any augmentation is 314818) 
-        #max_length = get_max_audio_length(combined_metadata_df)
-        #max_length = 314818 #TRUE MAX LENGTH
-        
-        max_length = sample_rate * seconds_of_audio
-
-        combined_dataset = Emotion_Classification_Dataset(metadata_df=metadata_df,
-                                                transformations = transformations,
-                                                same_length_all = True,
-                                                target_length = max_length,
-                                                target_sr = 24414)
-        
-
-        dataloader = DataLoader(combined_dataset, 
-                                batch_size=16, 
-                                shuffle=True,  
-                                num_workers = 1,
+    if waveforms_preloaded:
+        waveforms_dataset = Emotion_Classification_Waveforms(metadata_df=metadata_df,
+                                                             waveforms_dict=waveforms_dict,
+                                                             device = device)
+        dataloader = DataLoader(waveforms_dataset,
+                                batch_size=16,
+                                shuffle=True,
+                                num_workers=4,
                                 persistent_workers=True)
-
-        # dataloader = DataLoader(combined_dataset, 
-        #                         batch_size=16, 
-        #                         shuffle=True)
-        
     else:
-        combined_dataset = Emotion_Classification_Dataset(metadata_df=metadata_df,
-                                                transformations = transformations,
-                                                same_length_all = False,
-                                                target_sr = 24414)
-        dataloader = DataLoader(combined_dataset, 
-                                batch_size=16, 
-                                shuffle=True, 
-                                collate_fn=same_length_batch, 
-                                num_workers = 8,
-                                persistent_workers=True)
+        if same_length_all:
+            max_length = sample_rate * seconds_of_audio
+
+            combined_dataset = Emotion_Classification_Dataset(metadata_df=metadata_df,
+                                                    transformations = transformations,
+                                                    same_length_all = True,
+                                                    target_length = max_length,
+                                                    target_sr = 24414)
+            dataloader = DataLoader(combined_dataset, 
+                                    batch_size=16, 
+                                    shuffle=True,  
+                                    num_workers = 1,
+                                    persistent_workers=True)
+        else:
+            combined_dataset = Emotion_Classification_Dataset(metadata_df=metadata_df,
+                                                    transformations = transformations,
+                                                    same_length_all = False,
+                                                    target_sr = 24414)
+            dataloader = DataLoader(combined_dataset, 
+                                    batch_size=16, 
+                                    shuffle=True, 
+                                    collate_fn=same_length_batch, 
+                                    num_workers = 8,
+                                    persistent_workers=True)
     return dataloader
 
 # Function to compute Mel Spectrogram without any data manipulation (for CNN use)
@@ -265,6 +312,11 @@ def extract_mel_spectrogram(waveform, sample_rate = 24414, n_fft = 1024, hop_len
     ).to(waveform.device)  # Move transform to device (CPU or GPU)
     mel_spec = mel_transform(waveform).float()
     return mel_spec
+
+def mel_spec_to_db(mel_spec_array, device = device, multiplier=10.0, amin=1e-6, db_multiplier=0.0):
+    specgram = torch.tensor(mel_spec_array, device=device, dtype=torch.float32).squeeze(0)
+    spec_db = amplitude_to_DB(specgram,multiplier,amin,db_multiplier)
+    return spec_db
 
 # Function to compute MFCC features
 def extract_mfcc(waveform, sample_rate = 24414, n_mfcc=13, melkwargs = {"n_fft": 1024, "hop_length": 512, "n_mels": 64}):
