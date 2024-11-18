@@ -106,13 +106,6 @@ if __name__ == "__main__":
               waveform_features['Features'].shape, 
               emotions, 
               genders)
-
-        # print(f"Length of waveform dict is {len(waveforms)}")
-        # print(f"Length of mel spectrogram is {waveforms['Mel Spectrogram'].shape}")
-        # print(f"Length of MFCC is {waveforms['MFCC'].shape}")
-        # print(f"Length of Zero Crossing Rate {waveforms['Zero Crossing Rate'].shape}")
-        # print(f"Length of HNR is {waveforms['HNR'].shape}")
-        # print(f"Length of RMS is {waveforms['RMS'].shape}")
         break
 
     print(f"DataLoader initialization took: {time.time() - start:.2f} seconds")
