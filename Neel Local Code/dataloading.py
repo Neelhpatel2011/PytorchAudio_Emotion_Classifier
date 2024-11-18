@@ -61,38 +61,58 @@ transformations = {
 
 if __name__ == "__main__":
 
-    data_file_path = os.path.join(os.getcwd(), 'Data','metadata-and-augmentations')
-    os.chdir(data_file_path)
+    # data_file_path = os.path.join(os.getcwd(), 'Data','metadata-and-augmentations')
+    # os.chdir(data_file_path)
 
-    print(data_file_path)
+    # print(data_file_path)
 
 
-    # Load data
-    augmented_train_data_df = pd.read_csv(os.path.join(data_file_path, 'augmented_training_df.csv'))
+    # # Load data
+    # augmented_train_data_df = pd.read_csv(os.path.join(data_file_path, 'augmented_training_df.csv'))
 
     # Initialize DataLoader
+
+    # Load training data
+
+    mel_specs_train = np.load('Data/'+ 'mel_spectrograms_training.npy')
+    features_train = np.load('Data/' + 'training_features.npy')
+    metadata_train = np.load('Data/' + 'training_metadata.npy')
+
+    # Load testing data
+    mel_specs_test = np.load('Data/' + 'mel_spectrograms_test.npy')
+    features_test = np.load('Data/' + 'test_features.npy')
+    metadata_test = np.load('Data/' + 'test_metadata.npy')
+
+    train_waveforms_dict = {"Mel Spectrogram":mel_specs_train,
+                            "Features":features_train}
+    
+    train_metadata_df = pd.DataFrame(metadata_train)
+
     start = time.time()
-    train_dataloader = load_dataset(augmented_train_data_df,
+    train_dataloader = load_dataset(train_metadata_df,
+                                    waveforms_preloaded = True,
+                                    waveforms_dict=train_waveforms_dict,
                                     same_length_all=True,
                                     sample_rate=SAMPLE_RATE,
-                                    seconds_of_audio=3,
-                                    transformations=transformations)
-    print(f"DataLoader initialization took: {time.time() - start:.2f} seconds")
+                                    seconds_of_audio=3)
+    
 
     # Iterate through DataLoader
     for batch in tqdm(train_dataloader):
-        waveforms = batch['waveform_features']
+        waveform_features = batch['waveform_data']
         emotions = batch['emotion']
         genders = batch['gender']
-        sample_rate = batch['sample rate']
-        print(len(waveforms), emotions, genders, sample_rate)
+        print(waveform_features['Mel Spectrogram'].shape,
+              waveform_features['Features'].shape, 
+              emotions, 
+              genders)
 
-        print(f"Length of waveform dict is {len(waveforms)}")
-        print(f"Length of mel spectrogram is {waveforms['Mel Spectrogram'].shape}")
-        print(f"Length of MFCC is {waveforms['MFCC'].shape}")
-        print(f"Length of Zero Crossing Rate {waveforms['Zero Crossing Rate'].shape}")
-        print(f"Length of HNR is {waveforms['HNR'].shape}")
-        print(f"Length of RMS is {waveforms['RMS'].shape}")
+        # print(f"Length of waveform dict is {len(waveforms)}")
+        # print(f"Length of mel spectrogram is {waveforms['Mel Spectrogram'].shape}")
+        # print(f"Length of MFCC is {waveforms['MFCC'].shape}")
+        # print(f"Length of Zero Crossing Rate {waveforms['Zero Crossing Rate'].shape}")
+        # print(f"Length of HNR is {waveforms['HNR'].shape}")
+        # print(f"Length of RMS is {waveforms['RMS'].shape}")
         break
 
-
+    print(f"DataLoader initialization took: {time.time() - start:.2f} seconds")
