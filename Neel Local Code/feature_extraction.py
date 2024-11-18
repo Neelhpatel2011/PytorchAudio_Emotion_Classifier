@@ -120,13 +120,15 @@ def process_audio_files_test(data_df, base_path):
         #file_path = os.path.join(base_path, file['Filepath'])
 
         filepath = file['Filepath']
-        print(filepath)
         path_parts = filepath.split("/")
         start_index = path_parts.index('speech-emotion-recognition-en')  # Finding the starting index of your desired folder
         # Add 'Data' and join the remaining parts
         desired_path = os.path.join('Data', *path_parts[start_index:])
 
         waveform, sample_rate = torchaudio.load(desired_path)
+
+        if waveform.shape[0] > 1:
+            waveform = torch.mean(waveform, dim=0, keepdim=True)
 
         #First get the first 3 seconds of the audio
         waveform = pad_or_trim_waveform(waveform,target_length=24414*3)
