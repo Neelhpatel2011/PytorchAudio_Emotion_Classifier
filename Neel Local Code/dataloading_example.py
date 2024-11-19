@@ -20,7 +20,7 @@ import librosa
 from IPython.display import Audio
 
 import torch
-from torch.utils.data import Dataset, DataLoader, Subset
+from torch.utils.data import Dataset, DataLoader, random_split
 import torchaudio
 from torch.nn.utils.rnn import pad_sequence
 import torch.nn.functional as F
@@ -74,23 +74,41 @@ if __name__ == "__main__":
     train_metadata_df = pd.DataFrame(metadata_train)
 
     start = time.time()
-    train_dataloader = load_dataset(train_metadata_df,
-                                    waveforms_preloaded = True,
-                                    waveforms_dict=train_waveforms_dict,
-                                    same_length_all=True,
-                                    sample_rate=SAMPLE_RATE,
-                                    seconds_of_audio=3)
+    # train_dataloader = load_dataset(train_metadata_df,
+    #                                 waveforms_preloaded = True,
+    #                                 waveforms_dict=train_waveforms_dict,
+    #                                 same_length_all=True,
+    #                                 sample_rate=SAMPLE_RATE,
+    #                                 seconds_of_audio=3)
+
+
+    # Create your custom dataset instance
+    full_train_dataset = Emotion_Classification_Waveforms(
+        waveforms_dict=train_waveforms_dict,  # Your preloaded waveforms dictionary
+        metadata_df=train_metadata_df,        # Your metadata DataFrame
+        device=device                   # Device (e.g., 'cuda' or 'cpu')
+    )
+
+    # Split the dataset into training and validation sets
+    train_size = int(0.8 * len(full_train_dataset))  # 80% for training
+    val_size = len(full_train_dataset) - train_size  # Remaining 20% for validation
+    train_dataset, val_dataset = random_split(full_train_dataset, [train_size, val_size])
+
+    # Create DataLoaders for training and validation
+    train_dataloader = DataLoader(train_dataset, batch_size=16, shuffle=True, num_workers=4)
+    val_dataloader = DataLoader(val_dataset, batch_size=16, shuffle=False, num_workers=4)
+
 
     # Iterate through DataLoader
     for batch in tqdm(train_dataloader):
         waveform_features = batch['waveform_data']
         emotions = batch['emotion']
         genders = batch['gender']
-        # print(waveform_features['Mel Spectrogram'].shape,
-        #       waveform_features['Features'].shape, 
-        #       emotions, 
-        #       genders)  
-        print(emotions,genders)
+        print(waveform_features['Mel Spectrogram'].shape,
+              waveform_features['Features'].shape, 
+              emotions, 
+              genders)  
+        #print(emotions,genders)
         
 
     print(f"DataLoader initialization took: {time.time() - start:.2f} seconds")
