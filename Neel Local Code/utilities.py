@@ -236,6 +236,10 @@ class Emotion_Classification_Waveforms(Dataset):
         gender_label = self.metadata_df.iloc[idx]['Gender']
         file_name = self.metadata_df.iloc[idx]['Filename']
 
+        # print(f'Emotion label is {emotion_label}')
+        # # print(f'Gender label is {gender_label}')
+        # print(f'Emotion mapping is {emotion_mapping[emotion_label]}')
+
         emotion_tensor = torch.tensor(emotion_mapping[emotion_label], device=self.device)
         gender_tensor = torch.tensor(gender_mapping[gender_label], device=self.device)
 
@@ -249,6 +253,7 @@ class Emotion_Classification_Waveforms(Dataset):
                 features = self.waveforms_dict[keys][idx]
                 waveform_data[keys] = features
         
+        # print(f'Emotion tensor is {emotion_tensor}')
 
         return {
             'waveform_data': waveform_data,
@@ -258,8 +263,6 @@ class Emotion_Classification_Waveforms(Dataset):
         }
 
 
-
-#not in the dataloader class btw....
 def load_dataset(metadata_df, 
                  waveforms_preloaded = True,
                  waveforms_dict = None,
@@ -276,7 +279,7 @@ def load_dataset(metadata_df,
         dataloader = DataLoader(waveforms_dataset,
                                 batch_size=16,
                                 shuffle=True,
-                                num_workers=4,
+                                num_workers=2,
                                 persistent_workers=True)
     else:
         if same_length_all:
@@ -301,7 +304,7 @@ def load_dataset(metadata_df,
                                     batch_size=16, 
                                     shuffle=True, 
                                     collate_fn=same_length_batch, 
-                                    num_workers = 8,
+                                    num_workers = 1,
                                     persistent_workers=True)
     return dataloader
 

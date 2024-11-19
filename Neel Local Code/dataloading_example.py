@@ -31,17 +31,13 @@ import torch.multiprocessing as mp
 mp.set_start_method("spawn", force=True)
 
 from utilities import extract_hnr,extract_mel_spectrogram,extract_mfcc,extract_rms,extract_zero_crossing_rate
-from utilities import load_dataset
-
-
+from utilities import load_dataset, Emotion_Classification_Waveforms
 
 #Use GPU acceleration if possible
 if torch.cuda.is_available():
     device = "cuda"
 else:
     device = "cpu"
-   
-#print(f'Using {device}') 
 
 # Set seeds for reproducibility
 SEED = 42
@@ -60,17 +56,6 @@ transformations = {
 }
 
 if __name__ == "__main__":
-
-    # data_file_path = os.path.join(os.getcwd(), 'Data','metadata-and-augmentations')
-    # os.chdir(data_file_path)
-
-    # print(data_file_path)
-
-
-    # # Load data
-    # augmented_train_data_df = pd.read_csv(os.path.join(data_file_path, 'augmented_training_df.csv'))
-
-    # Initialize DataLoader
 
     # Load training data
 
@@ -95,17 +80,17 @@ if __name__ == "__main__":
                                     same_length_all=True,
                                     sample_rate=SAMPLE_RATE,
                                     seconds_of_audio=3)
-    
 
     # Iterate through DataLoader
     for batch in tqdm(train_dataloader):
         waveform_features = batch['waveform_data']
         emotions = batch['emotion']
         genders = batch['gender']
-        print(waveform_features['Mel Spectrogram'].shape,
-              waveform_features['Features'].shape, 
-              emotions, 
-              genders)
-        break
+        # print(waveform_features['Mel Spectrogram'].shape,
+        #       waveform_features['Features'].shape, 
+        #       emotions, 
+        #       genders)  
+        print(emotions,genders)
+        
 
     print(f"DataLoader initialization took: {time.time() - start:.2f} seconds")
