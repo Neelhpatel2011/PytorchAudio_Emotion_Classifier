@@ -97,11 +97,11 @@ class CombinedModel(pl.LightningModule):
         self.learning_rate = learning_rate
         self.dropout_rate = dropout_rate
 
-        # Classification metrics
-        self.accuracy = Accuracy()
-        self.precision = Precision(average='macro', num_classes=num_classes)
-        self.recall = Recall(average='macro', num_classes=num_classes)
-        self.f1 = F1Score(average='macro', num_classes=num_classes)
+        # Classification metrics (updated to include `task` argument)
+        self.accuracy = Accuracy(task="multiclass", num_classes=num_classes)
+        self.precision = Precision(task="multiclass", average='macro', num_classes=num_classes)
+        self.recall = Recall(task="multiclass", average='macro', num_classes=num_classes)
+        self.f1 = F1Score(task="multiclass", average='macro', num_classes=num_classes)
 
         # Save hyperparameters
         self.save_hyperparameters()
