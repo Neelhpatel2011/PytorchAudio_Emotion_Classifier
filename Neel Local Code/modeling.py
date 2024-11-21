@@ -104,7 +104,7 @@ class CombinedModel(pl.LightningModule):
         self.f1 = F1Score(task="multiclass", average='macro', num_classes=num_classes)
 
         # Save hyperparameters
-        self.save_hyperparameters()
+        self.save_hyperparameters(ignore=["cnn", "mlp"])
 
     def forward(self, mel_spec, features):
         cnn_output = self.cnn(mel_spec)  # Process Mel spectrogram with CNN

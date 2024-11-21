@@ -131,7 +131,10 @@ logger = TensorBoardLogger("logs/", name="emotion_classification")
 trainer = Trainer(max_epochs=50, 
                   callbacks=[early_stopping,checkpoint_callback],
                   logger=logger,
-                  gpus=1 if torch.cuda.is_available() else 0)
+                  accelerator="gpu" if torch.cuda.is_available() else "cpu",
+                  devices=1 if torch.cuda.is_available() else None  # Use 1 GPU or CPU
+)
+
 start_time = time.time()
 trainer.fit(model, train_dataloader, val_dataloader)
 end_time = time.time()
