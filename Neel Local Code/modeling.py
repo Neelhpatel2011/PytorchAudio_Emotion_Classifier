@@ -47,33 +47,60 @@ class MelSpec_CNN_Model(pl.LightningModule):
         self.conv3 = nn.Conv2d(64, 128, kernel_size=(3, 3), padding=1)
         self.bn3 = nn.BatchNorm2d(128)
         self.pool = nn.MaxPool2d(kernel_size=(2, 2))
+        self.conv4 = nn.Conv2d(128, 256, kernel_size=(3, 3), padding=1)
+        self.bn4 = nn.BatchNorm2d(256)
+        self.conv5 = nn.Conv2d(256, 512, kernel_size=(3, 3), padding=1)
+        self.bn5 = nn.BatchNorm2d(512)
         self.dropout = nn.Dropout(0.2)
         self.flatten = nn.Flatten()
-        self.fc = nn.Linear(128 * (64 // 8) * (144 // 8), 64)  # Adjust based on the output dimensions
+        self.fc = nn.Linear(512 * (64 // 8) * (144 // 8), 256)  # Adjust based on the output dimensions
+        self.fc1 = nn.Linear(256, 128)
+        self.bn_fc1 = nn.BatchNorm1d(128)
+        self.fc2 = nn.Linear(128, 64)
 
+        
     def forward(self, x):
+        # Pass through convolutional layers
         x = F.relu(self.bn1(self.conv1(x)))
-        x = self.dropout(x)
         x = self.pool(x)
+        x = self.dropout(x)
+
         x = F.relu(self.bn2(self.conv2(x)))
-        x = self.dropout(x)
         x = self.pool(x)
+        x = self.dropout(x)
+
         x = F.relu(self.bn3(self.conv3(x)))
-        x = self.dropout(x)
         x = self.pool(x)
+        x = self.dropout(x)
+
+        x = F.relu(self.bn4(self.conv4(x)))
+        x = self.pool(x)
+        x = self.dropout(x)
+
+        x = F.relu(self.bn5(self.conv5(x)))
+        x = self.pool(x)
+        x = self.dropout(x)
+
+        # Flatten the output
         x = self.flatten(x)
-        x = self.fc(x)
+
+        # Fully connected layers
+        x = F.relu(self.fc(x))
+        x = F.relu(self.bn_fc1(self.fc1(x)))
+        x = self.fc2(x)
         return x
 
 class Feature_MLP_Model(pl.LightningModule):
     def __init__(self, input_size=302):
         super(Feature_MLP_Model, self).__init__()
-        self.fc1 = nn.Linear(input_size, 128)
-        self.bn1 = nn.BatchNorm1d(128)
-        self.fc2 = nn.Linear(128, 64)
-        self.bn2 = nn.BatchNorm1d(64)
-        self.fc3 = nn.Linear(64, 32)
-        self.bn3 = nn.BatchNorm1d(32)
+        self.fc1 = nn.Linear(input_size, 256)
+        self.bn1 = nn.BatchNorm1d(256)
+        self.fc2 = nn.Linear(256, 128)
+        self.bn2 = nn.BatchNorm1d(128)
+        self.fc3 = nn.Linear(128, 64)
+        self.bn3 = nn.BatchNorm1d(64)
+        self.fc4= nn.Linear(64,32)
+        self.bn4 = nn.BatchNorm1d(32)
         self.dropout = nn.Dropout(0.2)
 
     def forward(self, x):
@@ -92,7 +119,9 @@ class CombinedModel(pl.LightningModule):
         self.mlp = mlp
         self.fc1 = nn.Linear(96, 64)  # Combining CNN (64) + MLP (32)
         self.bn1 = nn.BatchNorm1d(64)
-        self.fc2 = nn.Linear(64, num_classes)
+        self.fc2 = nn.Linear(64, 32)
+        self.bn2 = nn.BatchNorm1d(32)
+        self.fc3 = nn.Linear(32,num_classes)
 
         self.learning_rate = learning_rate
         self.dropout_rate = dropout_rate
@@ -111,8 +140,9 @@ class CombinedModel(pl.LightningModule):
         mlp_output = self.mlp(features)  # Process other features with MLP
         combined = torch.cat((cnn_output, mlp_output), dim=1)  # Concatenate outputs
         x = F.relu(self.bn1(self.fc1(combined)))
+        x= F.relu(self.bn2(self.fc2(x)))
         x = F.dropout(x, p=self.dropout_rate, training=self.training)
-        x = self.fc2(x)
+        x = self.fc3(x)
         return x
 
     def training_step(self, batch, batch_idx):
