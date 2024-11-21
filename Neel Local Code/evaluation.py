@@ -72,25 +72,24 @@ test_dataloader = DataLoader(test_dataset, batch_size=16,shuffle = False)
 # Load the final model from checkpoint
 model = CombinedModel.load_from_checkpoint("final_model.ckpt")
 model.eval() 
+model.to(device)
 
 #Create a new model instance with the same architecture
 cnn_model = MelSpec_CNN_Model()
 mlp_model = Feature_MLP_Model()
 model = CombinedModel(cnn=cnn_model, mlp=mlp_model)
 
-# Load the saved weights
-model.load_state_dict(torch.load("final_model_weights.pth"))
-
-
-model.eval() 
-model.to(device)  # Move model to the correct device
+# Load the saved weights (Optionally!)
+#model.load_state_dict(torch.load("final_model_weights.pth"))
+# model.eval() 
+# model.to(device)
 
 # Metrics initialization
-accuracy_metric = Accuracy().to(device)
-precision_metric = Precision(average='macro', num_classes=7).to(device)
-recall_metric = Recall(average='macro', num_classes=7).to(device)
-f1_metric = F1Score(average='macro', num_classes=7).to(device)
-confusion_matrix = ConfusionMatrix(num_classes=7).to(device)
+accuracy_metric = Accuracy(task="multiclass", num_classes=7).to(device)
+precision_metric = Precision(task="multiclass", average='macro', num_classes=7).to(device)
+recall_metric = Recall(task="multiclass", average='macro', num_classes=7).to(device)
+f1_metric = F1Score(task="multiclass", average='macro', num_classes=7).to(device)
+confusion_matrix = ConfusionMatrix(task="multiclass", num_classes=7).to(device)
 
 # Initialize accumulators for loss and metrics
 criterion = torch.nn.CrossEntropyLoss()  # Define loss function
