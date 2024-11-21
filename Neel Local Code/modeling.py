@@ -147,7 +147,7 @@ class CombinedModel(pl.LightningModule):
 
         return loss
     
-    def validation_epoch_end(self, outputs):
+    def on_validation_epoch_end(self):
         # Compute and log metrics
         accuracy = self.accuracy.compute()
         precision = self.precision.compute()
