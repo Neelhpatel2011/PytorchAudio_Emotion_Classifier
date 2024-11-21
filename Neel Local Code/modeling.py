@@ -110,6 +110,7 @@ class Feature_MLP_Model(pl.LightningModule):
         x = self.dropout(x)
         x = F.relu(self.bn3(self.fc3(x)))
         x = self.dropout(x)
+        x = F.relu(self.bn4(self.fc4(x)))
         return x
 
 class CombinedModel(pl.LightningModule):
