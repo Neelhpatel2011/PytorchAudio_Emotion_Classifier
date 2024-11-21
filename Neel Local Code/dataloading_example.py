@@ -71,7 +71,11 @@ if __name__ == "__main__":
     train_waveforms_dict = {"Mel Spectrogram":mel_specs_train,
                             "Features":features_train}
     
+    test_waveforms_dict = {"Mel Spectrogram":mel_specs_test,
+                            "Features":features_test}
+    
     train_metadata_df = pd.DataFrame(metadata_train)
+    test_metdata_df = pd.DataFrame(metadata_test)
 
     start = time.time()
     # train_dataloader = load_dataset(train_metadata_df,
@@ -89,6 +93,10 @@ if __name__ == "__main__":
         device=device                   # Device (e.g., 'cuda' or 'cpu')
     )
 
+    test_dataset = Emotion_Classification_Waveforms(waveforms_dict=test_waveforms_dict,
+                                                    metadata_df=test_metdata_df,
+                                                    device = device)
+
     # Split the dataset into training and validation sets
     train_size = int(0.8 * len(full_train_dataset))  # 80% for training
     val_size = len(full_train_dataset) - train_size  # Remaining 20% for validation
@@ -97,6 +105,8 @@ if __name__ == "__main__":
     # Create DataLoaders for training and validation
     train_dataloader = DataLoader(train_dataset, batch_size=16, shuffle=True, num_workers=4)
     val_dataloader = DataLoader(val_dataset, batch_size=16, shuffle=False, num_workers=4)
+
+    test_dataloader = DataLoader(test_dataset, batch_size=16,shuffle = False)
 
 
     # Iterate through DataLoader

@@ -248,7 +248,7 @@ class Emotion_Classification_Waveforms(Dataset):
             if keys == 'Mel Spectrogram':
                 mel_spec = self.waveforms_dict['Mel Spectrogram'][idx]
                 mel_spec_db = mel_spec_to_db(mel_spec_array=mel_spec, device = self.device)
-                waveform_data[keys] = mel_spec_db
+                waveform_data[keys] = mel_spec_db.unsqueeze(0)
             else:
                 features = self.waveforms_dict[keys][idx]
                 waveform_data[keys] = features
