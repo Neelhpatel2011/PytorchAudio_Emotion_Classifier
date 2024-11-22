@@ -73,15 +73,15 @@ cnn_model = MelSpec_CNN_Model()
 mlp_model = Feature_MLP_Model()
 model = CombinedModel(cnn=cnn_model, mlp=mlp_model)
 
-# Load the final model from checkpoint
-model = CombinedModel.load_from_checkpoint("final_model.ckpt", cnn=cnn_model,mlp=mlp_model)
-model.eval() 
-model.to(device)
-
-# Load the saved weights (Optionally!)
-#model.load_state_dict(torch.load("final_model_weights.pth"))
+# # Load the final model from checkpoint
+# model = CombinedModel.load_from_checkpoint("final_model.ckpt",cnn=cnn_model,mlp=mlp_model)
 # model.eval() 
 # model.to(device)
+
+#Load the saved weights (Optionally!)
+model.load_state_dict(torch.load("final_model_weights.pth"))
+model.eval() 
+model.to(device)
 
 # Metrics initialization
 accuracy_metric = Accuracy(task="multiclass", num_classes=7).to(device)

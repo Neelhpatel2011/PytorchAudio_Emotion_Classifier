@@ -28,6 +28,7 @@ import torch.nn.functional as F
 import torchaudio.transforms as T
 from torchaudio.functional import amplitude_to_DB
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
 
 import torch.multiprocessing as mp
 mp.set_start_method("spawn", force=True)
@@ -276,6 +277,7 @@ def load_dataset(metadata_df,
         waveforms_dataset = Emotion_Classification_Waveforms(metadata_df=metadata_df,
                                                              waveforms_dict=waveforms_dict,
                                                              device = device)
+        
         dataloader = DataLoader(waveforms_dataset,
                                 batch_size=16,
                                 shuffle=True,

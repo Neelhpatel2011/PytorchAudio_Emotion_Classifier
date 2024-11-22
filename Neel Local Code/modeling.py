@@ -53,7 +53,7 @@ class MelSpec_CNN_Model(pl.LightningModule):
         self.bn5 = nn.BatchNorm2d(512)
         self.dropout = nn.Dropout(0.2)
         self.flatten = nn.Flatten()
-        self.fc = nn.Linear(512 * (64 // 8) * (144 // 8), 256)  # Adjust based on the output dimensions
+        self.fc = nn.Linear(512 * (64 // 32) * (144 // 32), 256)  # Adjust based on the output dimensions
         self.fc1 = nn.Linear(256, 128)
         self.bn_fc1 = nn.BatchNorm1d(128)
         self.fc2 = nn.Linear(128, 64)
@@ -83,6 +83,10 @@ class MelSpec_CNN_Model(pl.LightningModule):
 
         # Flatten the output
         x = self.flatten(x)
+
+        # Dynamically set `self.fc` on the first forward pass
+        if isinstance(self.fc, nn.Identity):  # Check if it's still a placeholder
+            self.fc = nn.Linear(x.size(1), 256).to(x.device)
 
         # Fully connected layers
         x = F.relu(self.fc(x))
