@@ -20,18 +20,24 @@ import librosa
 from IPython.display import Audio
 
 import torch
+import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader, random_split
 import torchaudio
 from torch.nn.utils.rnn import pad_sequence
 import torch.nn.functional as F
 import torchaudio.transforms as T
+import pytorch_lightning as pl
+from pytorch_lightning import Trainer
+from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
+from pytorch_lightning.loggers import TensorBoardLogger
+
 from sklearn.model_selection import train_test_split
 
-import torch.multiprocessing as mp
-mp.set_start_method("spawn", force=True)
+from utilities import Emotion_Classification_Waveforms
+from modeling import MelSpec_CNN_Model,Feature_MLP_Model,CombinedModel
 
-from utilities import extract_hnr,extract_mel_spectrogram,extract_mfcc,extract_rms,extract_zero_crossing_rate
-from utilities import load_dataset, Emotion_Classification_Waveforms
+
+###########################################################################
 
 #Use GPU acceleration if possible
 if torch.cuda.is_available():
@@ -47,38 +53,48 @@ torch.manual_seed(SEED)
 torch.cuda.manual_seed(SEED)  # If using CUDA
 SAMPLE_RATE = 24414
 
-transformations = {
-    'Mel Spectrogram': extract_mel_spectrogram,
-    'MFCC': extract_mfcc,
-    'Zero Crossing Rate': extract_zero_crossing_rate,
-    'HNR': extract_hnr,
-    'RMS': extract_rms
-}
+#Use GPU acceleration if possible
+if torch.cuda.is_available():
+    device = "cuda"
+else:
+    device = "cpu"
+
+# Set seeds for reproducibility
+SEED = 42
+random.seed(SEED)
+np.random.seed(SEED)
+torch.manual_seed(SEED)
+torch.cuda.manual_seed(SEED)  # If using CUDA
+SAMPLE_RATE = 24414
 
 if __name__ == "__main__":
 
-    # Load training data
+    # # Load training data
 
-    mel_specs_train = np.load('Data/'+ 'mel_spectrograms_training.npy')
-    features_train = np.load('Data/' + 'training_features.npy')
-    metadata_train = np.load('Data/' + 'training_metadata.npy')
+    # # mel_specs_train = np.load('Data/'+ 'mel_spectrograms_training.npy')
+    # # features_train = np.load('Data/' + 'training_features.npy')
+    # # metadata_train = np.load('Data/' + 'training_metadata.npy')
 
-    # Load testing data
-    mel_specs_test = np.load('Data/' + 'mel_spectrograms_test.npy')
-    features_test = np.load('Data/' + 'test_features.npy')
-    metadata_test = np.load('Data/' + 'test_metadata.npy')
+    # mel_specs_combined = np.load('Data/mel_spectrograms_training_combined.npy')
+    # features_combined = np.load('Data/training_features_combined.npy')
+    # metadata_combined = np.load('Data/training_metadata_combined.npy')
 
-    train_waveforms_dict = {"Mel Spectrogram":mel_specs_train,
-                            "Features":features_train}
+    # # Load testing data
+    # mel_specs_test = np.load('Data/' + 'mel_spectrograms_test.npy')
+    # features_test = np.load('Data/' + 'test_features.npy')
+    # metadata_test = np.load('Data/' + 'test_metadata.npy')
+
+    # train_waveforms_dict = {"Mel Spectrogram":mel_specs_combined,
+    #                         "Features":features_combined}
     
-    test_waveforms_dict = {"Mel Spectrogram":mel_specs_test,
-                            "Features":features_test}
+    # test_waveforms_dict = {"Mel Spectrogram":mel_specs_test,
+    #                         "Features":features_test}
     
-    train_metadata_df = pd.DataFrame(metadata_train)
-    test_metdata_df = pd.DataFrame(metadata_test)
+    # train_metadata_df = pd.DataFrame(metadata_combined)
+    # test_metdata_df = pd.DataFrame(metadata_test)
 
 
-    print(train_metadata_df['Emotion'].unique())
+    # print(train_metadata_df['Emotion'].unique())
 
     # start = time.time()
     # # train_dataloader = load_dataset(train_metadata_df,
@@ -125,3 +141,20 @@ if __name__ == "__main__":
         
 
     # print(f"DataLoader initialization took: {time.time() - start:.2f} seconds")
+
+
+
+    #Testing the model out!
+
+    model = MelSpec_CNN_Model(input_channels=1)
+    dummy_input = torch.zeros(4, 1, 64, 144)
+    output = model(dummy_input)
+    print("Output shape:", output.shape)
+
+
+
+
+
+
+    
+

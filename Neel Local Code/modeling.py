@@ -37,61 +37,113 @@ mp.set_start_method("spawn", force=True)
 
 #Build the model for CNN and MLP
 
+# class MelSpec_CNN_Model(pl.LightningModule):
+#     def __init__(self, input_channels=1):
+#         super(MelSpec_CNN_Model, self).__init__()
+#         self.conv1 = nn.Conv2d(input_channels, 32, kernel_size=(3, 3), padding=1)
+#         self.bn1 = nn.BatchNorm2d(32)
+#         self.conv2 = nn.Conv2d(32, 64, kernel_size=(3, 3), padding=1)
+#         self.bn2 = nn.BatchNorm2d(64)
+#         self.conv3 = nn.Conv2d(64, 128, kernel_size=(3, 3), padding=1)
+#         self.bn3 = nn.BatchNorm2d(128)
+#         self.pool = nn.MaxPool2d(kernel_size=(2, 2))
+#         self.conv4 = nn.Conv2d(128, 256, kernel_size=(3, 3), padding=1)
+#         self.bn4 = nn.BatchNorm2d(256)
+#         self.conv5 = nn.Conv2d(256, 512, kernel_size=(3, 3), padding=1)
+#         self.bn5 = nn.BatchNorm2d(512)
+#         self.dropout = nn.Dropout(0.2)
+#         self.flatten = nn.Flatten()
+#         self.fc = nn.Linear(512 * (64 // 32) * (144 // 32), 256)  # Adjust based on the output dimensions
+#         self.fc1 = nn.Linear(256, 128)
+#         self.bn_fc1 = nn.BatchNorm1d(128)
+#         self.fc2 = nn.Linear(128, 64)
+
+        
+#     def forward(self, x):
+#         # Pass through convolutional layers
+#         x = F.relu(self.bn1(self.conv1(x)))
+#         x = self.pool(x)
+#         x = self.dropout(x)
+
+#         x = F.relu(self.bn2(self.conv2(x)))
+#         x = self.pool(x)
+#         x = self.dropout(x)
+
+#         x = F.relu(self.bn3(self.conv3(x)))
+#         x = self.pool(x)
+#         x = self.dropout(x)
+
+#         x = F.relu(self.bn4(self.conv4(x)))
+#         x = self.pool(x)
+#         x = self.dropout(x)
+
+#         x = F.relu(self.bn5(self.conv5(x)))
+#         x = self.pool(x)
+#         x = self.dropout(x)
+
+#         # Flatten the output
+#         x = self.flatten(x)
+
+#         # Dynamically set `self.fc` on the first forward pass
+#         if isinstance(self.fc, nn.Identity):  # Check if it's still a placeholder
+#             self.fc = nn.Linear(x.size(1), 256).to(x.device)
+
+#         # Fully connected layers
+#         x = F.relu(self.fc(x))
+#         x = F.relu(self.bn_fc1(self.fc1(x)))
+#         x = self.fc2(x)
+#         return x
+
+
 class MelSpec_CNN_Model(pl.LightningModule):
-    def __init__(self, input_channels=1):
+    def __init__(self, input_channels=1, dropout_rate=0.2):
         super(MelSpec_CNN_Model, self).__init__()
-        self.conv1 = nn.Conv2d(input_channels, 32, kernel_size=(3, 3), padding=1)
-        self.bn1 = nn.BatchNorm2d(32)
-        self.conv2 = nn.Conv2d(32, 64, kernel_size=(3, 3), padding=1)
-        self.bn2 = nn.BatchNorm2d(64)
-        self.conv3 = nn.Conv2d(64, 128, kernel_size=(3, 3), padding=1)
-        self.bn3 = nn.BatchNorm2d(128)
-        self.pool = nn.MaxPool2d(kernel_size=(2, 2))
-        self.conv4 = nn.Conv2d(128, 256, kernel_size=(3, 3), padding=1)
-        self.bn4 = nn.BatchNorm2d(256)
-        self.conv5 = nn.Conv2d(256, 512, kernel_size=(3, 3), padding=1)
-        self.bn5 = nn.BatchNorm2d(512)
-        self.dropout = nn.Dropout(0.2)
+        self.dropout_rate = dropout_rate
+
+        # Define 8 convolutional blocks
+        self.blocks = nn.ModuleList()
+        in_channels = input_channels
+        out_channels_list = [64, 128, 256, 256, 512, 512]  # Channels for each block
+
+        for out_channels in out_channels_list:
+            self.blocks.append(
+                nn.Sequential(
+                    nn.Conv2d(in_channels, out_channels, kernel_size=(3, 3), padding=1),
+                    nn.BatchNorm2d(out_channels),
+                    nn.ReLU(),
+                    nn.Conv2d(out_channels, out_channels, kernel_size=(3, 3), padding=1),
+                    nn.BatchNorm2d(out_channels),
+                    nn.ReLU(),
+                    nn.MaxPool2d(kernel_size=(2, 2)),  # Apply pooling at the end of every block
+                    nn.Dropout(self.dropout_rate)
+                )
+            )
+            in_channels = out_channels
+
+        # Calculate output size after all blocks (assuming input size is [B, 1, 64, 144])
         self.flatten = nn.Flatten()
-        self.fc = nn.Linear(512 * (64 // 32) * (144 // 32), 256)  # Adjust based on the output dimensions
+        dummy_input = torch.zeros(1, input_channels, 64, 144)  # Dummy input to calculate dimensions
+        dummy_output = self._forward_blocks(dummy_input)
+        flattened_size = dummy_output.size(1)
+
+        # Fully connected layers
+        self.fc = nn.Linear(flattened_size, 256)
         self.fc1 = nn.Linear(256, 128)
         self.bn_fc1 = nn.BatchNorm1d(128)
         self.fc2 = nn.Linear(128, 64)
 
-        
+    def _forward_blocks(self, x):
+        """Helper function to pass data through all CNN blocks."""
+        for i,block in enumerate(self.blocks):
+            x = block(x)
+        x = self.flatten(x) #Flatten the output!
+        return x
+
     def forward(self, x):
-        # Pass through convolutional layers
-        x = F.relu(self.bn1(self.conv1(x)))
-        x = self.pool(x)
-        x = self.dropout(x)
-
-        x = F.relu(self.bn2(self.conv2(x)))
-        x = self.pool(x)
-        x = self.dropout(x)
-
-        x = F.relu(self.bn3(self.conv3(x)))
-        x = self.pool(x)
-        x = self.dropout(x)
-
-        x = F.relu(self.bn4(self.conv4(x)))
-        x = self.pool(x)
-        x = self.dropout(x)
-
-        x = F.relu(self.bn5(self.conv5(x)))
-        x = self.pool(x)
-        x = self.dropout(x)
-
-        # Flatten the output
-        x = self.flatten(x)
-
-        # Dynamically set `self.fc` on the first forward pass
-        if isinstance(self.fc, nn.Identity):  # Check if it's still a placeholder
-            self.fc = nn.Linear(x.size(1), 256).to(x.device)
-
-        # Fully connected layers
-        x = F.relu(self.fc(x))
+        x = self._forward_blocks(x)  # Pass through convolutional blocks
+        x = F.relu(self.fc(x))  # Fully connected layers
         x = F.relu(self.bn_fc1(self.fc1(x)))
-        x = self.fc2(x)
+        x = self.fc2(x) #output is 64
         return x
 
 class Feature_MLP_Model(pl.LightningModule):
