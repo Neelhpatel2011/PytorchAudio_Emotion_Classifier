@@ -103,7 +103,7 @@ class MelSpec_CNN_Model(pl.LightningModule):
         # Define 8 convolutional blocks
         self.blocks = nn.ModuleList()
         in_channels = input_channels
-        out_channels_list = [64, 128, 256, 256, 512, 512]  # Channels for each block
+        out_channels_list = [64, 128, 256, 256, 512]  # Channels for each block
 
         for out_channels in out_channels_list:
             self.blocks.append(
@@ -122,7 +122,7 @@ class MelSpec_CNN_Model(pl.LightningModule):
 
         # Calculate output size after all blocks (assuming input size is [B, 1, 64, 144])
         self.flatten = nn.Flatten()
-        dummy_input = torch.zeros(1, input_channels, 64, 144)  # Dummy input to calculate dimensions
+        dummy_input = torch.zeros(1, input_channels, 128, 573)  # Dummy input to calculate dimensions
         dummy_output = self._forward_blocks(dummy_input)
         flattened_size = dummy_output.size(1)
 

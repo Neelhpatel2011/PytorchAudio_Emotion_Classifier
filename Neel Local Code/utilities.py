@@ -311,7 +311,7 @@ def load_dataset(metadata_df,
     return dataloader
 
 # Function to compute Mel Spectrogram without any data manipulation (for CNN use)
-def extract_mel_spectrogram(waveform, sample_rate = 24414, n_fft = 1024, hop_length = 512, n_mels = 64):
+def extract_mel_spectrogram(waveform, sample_rate = 24414, n_fft = 1024, hop_length = 128, n_mels = 128):
     mel_transform = torchaudio.transforms.MelSpectrogram(
         sample_rate=sample_rate, n_fft=n_fft, hop_length=hop_length, n_mels=n_mels
     ).to(waveform.device)  # Move transform to device (CPU or GPU)

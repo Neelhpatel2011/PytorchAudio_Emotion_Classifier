@@ -149,7 +149,7 @@ def process_audio_files_test(data_df, base_path):
     return np.array(mel_spectrograms_list), np.array(features_list), metadata_list
 
 
-#Get the augmented_surprised_samples!
+# #Get the augmented_surprised_samples!
 
 # data_path = 'Data/metadata-and-augmentations/'
 # augmented_surprised_df = pd.read_csv(data_path+'augmented_surprised_df.csv')
@@ -198,16 +198,16 @@ def process_audio_files_test(data_df, base_path):
 # np.save(r'Data/test_metadata.npy', metadata_test_array)
 
 
-# #Load the data and test it out
+# # #Load the data and test it out
 
-# mel_specs_surprised = np.load('Data/'+ 'mel_spectrograms_surprised.npy')
-# features_surprised = np.load('Data/' + 'surprised_features.npy')
-# metadata_surprised = np.load('Data/' + 'surprised_metadata.npy')
+# # mel_specs_surprised = np.load('Data/'+ 'mel_spectrograms_surprised.npy')
+# # features_surprised = np.load('Data/' + 'surprised_features.npy')
+# # metadata_surprised = np.load('Data/' + 'surprised_metadata.npy')
 
-# # Load training data
-# mel_specs_train = np.load('Data/'+ 'mel_spectrograms_training.npy')
-# features_train = np.load('Data/' + 'training_features.npy')
-# metadata_train = np.load('Data/' + 'training_metadata.npy')
+# # # Load training data
+# # mel_specs_train = np.load('Data/'+ 'mel_spectrograms_training.npy')
+# # features_train = np.load('Data/' + 'training_features.npy')
+# # metadata_train = np.load('Data/' + 'training_metadata.npy')
 
 # #Combined surprised and existing training and save again!
 
@@ -230,29 +230,18 @@ def process_audio_files_test(data_df, base_path):
 # # features_test = np.load('Data/' + 'test_features.npy')
 # # metadata_test = np.load('Data/' + 'test_metadata.npy')
 
-# # Print sizes
-# print("Training Mel Spectrograms Shape:", mel_specs_train.shape)
-# print("Training Features Shape:", features_train.shape)
-# print("Training Metadata Shape:", metadata_train.shape)
 
-# # Load combined data to test
-# mel_specs_combined = np.load('Data/mel_spectrograms_training_combined.npy')
-# features_combined = np.load('Data/training_features_combined.npy')
-# metadata_combined = np.load('Data/training_metadata_combined.npy')
+# Load combined data to test
+mel_specs_combined = np.load('Data/mel_spectrograms_training_combined.npy',allow_pickle=True)
+features_combined = np.load('Data/training_features_combined.npy',allow_pickle=True)
+metadata_combined = np.load('Data/training_metadata_combined.npy',allow_pickle=True)
 
-# # Print their shapes to verify
-# print("Shape of combined Mel spectrograms:", mel_specs_combined.shape)
-# print("Shape of combined features:", features_combined.shape)
-# print("Number of metadata entries:", len(metadata_combined))
+# Print their shapes to verify
+print("Shape of combined Mel spectrograms:", mel_specs_combined.shape)
+print("Shape of combined features:", features_combined.shape)
+print("Number of metadata entries:", len(metadata_combined))
 
 
 # print("Testing Mel Spectrograms Shape:", mel_specs_test.shape)
 # print("Testing Features Shape:", features_test.shape)
 # print("Testing Metadata Shape:", metadata_test.shape)
-
-
-metadata_combined = np.load('Data/training_metadata_combined.npy')
-
-df = pd.DataFrame(metadata_combined)
-
-print(df.head())
