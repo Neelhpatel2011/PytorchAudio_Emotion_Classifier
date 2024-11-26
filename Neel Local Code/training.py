@@ -56,14 +56,14 @@ SAMPLE_RATE = 24414
 
 #Load the training data
 
-mel_specs_train = np.load('Data/'+ 'mel_spectrograms_training_combined.npy')
-features_train = np.load('Data/' + 'training_features_combined.npy')
-metadata_train = np.load('Data/' + 'training_metadata_combined.npy')
+mel_specs_train = np.load('Data/'+ 'mel_spectrograms_training_combined.npy',allow_pickle=True)
+features_train = np.load('Data/' + 'training_features_combined.npy',allow_pickle=True)
+metadata_train = np.load('Data/' + 'training_metadata_combined.npy',allow_pickle=True)
 
 # Load testing data
-mel_specs_test = np.load('Data/' + 'mel_spectrograms_test.npy')
-features_test = np.load('Data/' + 'test_features.npy')
-metadata_test = np.load('Data/' + 'test_metadata.npy')
+mel_specs_test = np.load('Data/' + 'mel_spectrograms_test.npy',allow_pickle=True)
+features_test = np.load('Data/' + 'test_features.npy',allow_pickle=True)
+metadata_test = np.load('Data/' + 'test_metadata.npy',allow_pickle=True)
 
 #Train and test waveform dictionaries
 
