@@ -55,18 +55,26 @@ SAMPLE_RATE = 24414
 # Load testing data
 mel_specs_test = np.load('Data/' + 'mel_spectrograms_test.npy')
 features_test = np.load('Data/' + 'test_features.npy')
-metadata_test = np.load('Data/' + 'test_metadata.npy')
+metadata_test = np.load('Data/' + 'test_metadata.npy',allow_pickle=True)
 
-test_waveforms_dict = {"Mel Spectrogram":mel_specs_test,
-                            "Features":features_test}
+test_hdf5_file = 'Data/test_data.hdf5'
+test_metadata_df = pd.DataFrame(metadata_test)
 
-test_metdata_df = pd.DataFrame(metadata_test)
+test_dataset = Emotion_Classification_Waveforms(
+    hdf5_file_path=test_hdf5_file,
+    metadata_df=test_metadata_df
+)
 
-test_dataset = Emotion_Classification_Waveforms(waveforms_dict=test_waveforms_dict,
-                                                    metadata_df=test_metdata_df,
-                                                    device = device)
+# test_waveforms_dict = {"Mel Spectrogram":mel_specs_test,
+#                             "Features":features_test}
 
-test_dataloader = DataLoader(test_dataset, batch_size=16,shuffle = False)
+
+
+# test_dataset = Emotion_Classification_Waveforms(waveforms_dict=test_waveforms_dict,
+#                                                     metadata_df=test_metdata_df,
+#                                                     device = device)
+
+test_dataloader = DataLoader(test_dataset, batch_size=16, shuffle = False)
 
 #Create a new model instance with the same architecture
 cnn_model = MelSpec_CNN_Model()
