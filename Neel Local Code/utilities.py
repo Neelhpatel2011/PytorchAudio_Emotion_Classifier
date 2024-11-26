@@ -27,11 +27,8 @@ from torch.nn.utils.rnn import pad_sequence
 import torch.nn.functional as F
 import torchaudio.transforms as T
 from torchaudio.functional import amplitude_to_DB
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
 
-import torch.multiprocessing as mp
-mp.set_start_method("spawn", force=True)
+import h5py
 
 #Use GPU acceleration if possible
 if torch.cuda.is_available():
@@ -211,21 +208,22 @@ class Emotion_Classification_Dataset(Dataset):
         return waveform
     
 class Emotion_Classification_Waveforms(Dataset):
-    def __init__(self, waveforms_dict,
-                 metadata_df,
-                 device = device):
-        """
-        Args:
-
-        """
+    def __init__(self, hdf5_file_path,
+                 metadata_df):
+        
         self.metadata_df = metadata_df
-        self.waveforms_dict = waveforms_dict
-        self.device = device
+        self.hdf5_file_path = hdf5_file_path
+        self.hdf5_file = None  # Will be opened in __getitem__
 
     def __len__(self):
         return len(self.metadata_df)
 
     def __getitem__(self, idx):
+
+        if self.hdf5_file is None:
+            # Each worker process must open its own file handle
+            self.hdf5_file = h5py.File(self.hdf5_file_path, 'r')
+
         emotion_mapping = {
             "neutral": 0, "happy": 1, "sad": 2, "angry": 3,
             "fear": 4, "disgust": 5, "surprised": 6
@@ -236,25 +234,22 @@ class Emotion_Classification_Waveforms(Dataset):
         emotion_label = self.metadata_df.iloc[idx]['Emotion']
         gender_label = self.metadata_df.iloc[idx]['Gender']
         file_name = self.metadata_df.iloc[idx]['Filename']
+        emotion_tensor = torch.tensor(emotion_mapping[emotion_label])
+        gender_tensor = torch.tensor(gender_mapping[gender_label])
 
-        # print(f'Emotion label is {emotion_label}')
-        # # print(f'Gender label is {gender_label}')
-        # print(f'Emotion mapping is {emotion_mapping[emotion_label]}')
+       # Access data from the HDF5 file
+        mel_spec = self.hdf5_file['mel_spectrograms'][idx]
+        features = self.hdf5_file['features'][idx]
 
-        emotion_tensor = torch.tensor(emotion_mapping[emotion_label], device=self.device)
-        gender_tensor = torch.tensor(gender_mapping[gender_label], device=self.device)
+        # Process mel_spec
+        mel_spec_db = mel_spec_to_db(mel_spec_array=mel_spec)
+        mel_spec_db = torch.tensor(mel_spec_db).unsqueeze(0).float()
+        features = torch.tensor(features).float()
 
-        waveform_data = {}
-        for keys,values in self.waveforms_dict.items():
-            if keys == 'Mel Spectrogram':
-                mel_spec = self.waveforms_dict['Mel Spectrogram'][idx]
-                mel_spec_db = mel_spec_to_db(mel_spec_array=mel_spec, device = self.device)
-                waveform_data[keys] = mel_spec_db.unsqueeze(0)
-            else:
-                features = self.waveforms_dict[keys][idx]
-                waveform_data[keys] = features
-        
-        # print(f'Emotion tensor is {emotion_tensor}')
+        waveform_data = {
+            'Mel Spectrogram': mel_spec_db,
+            'Features': features
+        }
 
         return {
             'waveform_data': waveform_data,
@@ -262,6 +257,16 @@ class Emotion_Classification_Waveforms(Dataset):
             'gender': gender_tensor,
             'filename': file_name
         }
+    
+    def __getstate__(self):
+        # Ensure the HDF5 file handle is not pickled
+        state = self.__dict__.copy()
+        state['hdf5_file'] = None
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        self.hdf5_file = None  # Reinitialize in the worker process
 
 
 def load_dataset(metadata_df, 
@@ -281,8 +286,7 @@ def load_dataset(metadata_df,
         dataloader = DataLoader(waveforms_dataset,
                                 batch_size=16,
                                 shuffle=True,
-                                num_workers=2,
-                                persistent_workers=True)
+                                num_workers=0)
     else:
         if same_length_all:
             max_length = sample_rate * seconds_of_audio
@@ -318,15 +322,15 @@ def extract_mel_spectrogram(waveform, sample_rate = 24414, n_fft = 1024, hop_len
     mel_spec = mel_transform(waveform).float()
     return mel_spec
 
-def mel_spec_to_db(mel_spec_array, device = device, multiplier=10.0, amin=1e-6, db_multiplier=0.0):
-    specgram = torch.tensor(mel_spec_array, device=device, dtype=torch.float32).squeeze(0)
+def mel_spec_to_db(mel_spec_array, multiplier=10.0, amin=1e-6, db_multiplier=0.0):
+    specgram = torch.tensor(mel_spec_array, dtype=torch.float32).squeeze(0)
     spec_db = amplitude_to_DB(specgram,multiplier,amin,db_multiplier)
     return spec_db
 
 # Function to compute MFCC features
 def extract_mfcc(waveform, sample_rate = 24414, n_mfcc=13, melkwargs = {"n_fft": 1024, "hop_length": 512, "n_mels": 64}):
     mfcc_transform = torchaudio.transforms.MFCC(
-        sample_rate=sample_rate, n_mfcc=n_mfcc, melkwargs=melkwargs).to(waveform.device)  # Move transform to device (CPU or GPU)
+        sample_ratAe=sample_rate, n_mfcc=n_mfcc, melkwargs=melkwargs).to(waveform.device)  # Move transform to device (CPU or GPU)
     mfccs = mfcc_transform(waveform).float()
     mfccs = torch.mean(mfccs, dim = 2)
     return mfccs

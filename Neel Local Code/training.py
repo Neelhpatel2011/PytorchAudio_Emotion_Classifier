@@ -36,7 +36,9 @@ from sklearn.model_selection import train_test_split
 
 from utilities import Emotion_Classification_Waveforms
 from modeling import MelSpec_CNN_Model,Feature_MLP_Model,CombinedModel
+import torch.multiprocessing as mp
 
+import h5py
 
 ###########################################################################
 
@@ -56,37 +58,51 @@ SAMPLE_RATE = 24414
 
 #Load the training data
 
-mel_specs_train = np.load('Data/'+ 'mel_spectrograms_training_combined.npy',allow_pickle=True)
-features_train = np.load('Data/' + 'training_features_combined.npy',allow_pickle=True)
+mel_specs_train = np.load('Data/'+ 'mel_spectrograms_training_combined.npy')
+features_train = np.load('Data/' + 'training_features_combined.npy')
 metadata_train = np.load('Data/' + 'training_metadata_combined.npy',allow_pickle=True)
+#Load up test and train metadata.csv
+
 
 # Load testing data
-mel_specs_test = np.load('Data/' + 'mel_spectrograms_test.npy',allow_pickle=True)
-features_test = np.load('Data/' + 'test_features.npy',allow_pickle=True)
+mel_specs_test = np.load('Data/' + 'mel_spectrograms_test.npy')
+features_test = np.load('Data/' + 'test_features.npy')
 metadata_test = np.load('Data/' + 'test_metadata.npy',allow_pickle=True)
 
-#Train and test waveform dictionaries
-
-train_waveforms_dict = {"Mel Spectrogram":mel_specs_train,
-                        "Features":features_train}
-
-test_waveforms_dict = {"Mel Spectrogram":mel_specs_test,
-                            "Features":features_test}
+#Load HDF5 format files 
+train_hdf5_file = 'Data/training_data.hdf5'
+test_hdf5_file = 'Data/test_data.hdf5'
 
 #Train and test metadata dataframes
-train_metadata_df = pd.DataFrame(metadata_train)
-test_metdata_df = pd.DataFrame(metadata_test)
+train_metadata_df = pd.DataFrame(metadata_train.tolist())
+test_metadata_df = pd.DataFrame(metadata_test.tolist())
 
-
+# Create datasets
 full_train_dataset = Emotion_Classification_Waveforms(
-        waveforms_dict=train_waveforms_dict,  # preloaded waveforms dictionary
-        metadata_df=train_metadata_df,        # metadata DataFrame
-        device=device            
-    )
+    hdf5_file_path=train_hdf5_file,
+    metadata_df=train_metadata_df
+)
 
-test_dataset = Emotion_Classification_Waveforms(waveforms_dict=test_waveforms_dict,
-                                                    metadata_df=test_metdata_df,
-                                                    device = device)
+test_dataset = Emotion_Classification_Waveforms(
+    hdf5_file_path=test_hdf5_file,
+    metadata_df=test_metadata_df
+)
+
+# #Train and test waveform dictionaries
+
+# train_waveforms_dict = {"Mel Spectrogram":mel_specs_train,
+#                         "Features":features_train}
+
+# test_waveforms_dict = {"Mel Spectrogram":mel_specs_test,
+#                             "Features":features_test}
+
+# full_train_dataset = Emotion_Classification_Waveforms(
+#         waveforms_dict=train_waveforms_dict,  # preloaded waveforms dictionary
+#         metadata_df=train_metadata_df       
+#     )
+
+# test_dataset = Emotion_Classification_Waveforms(waveforms_dict=test_waveforms_dict,
+#                                                     metadata_df=test_metadata_df)
 
 
 # Split the training dataset into training and validation sets
@@ -95,11 +111,13 @@ val_size = len(full_train_dataset) - train_size  # Remaining 20% for validation
 train_dataset, val_dataset = random_split(full_train_dataset, [train_size, val_size])
 
 # Create DataLoaders for training and validation and testing
-train_dataloader = DataLoader(train_dataset, batch_size=16, shuffle=True, num_workers=4, persistent_workers=True)
+train_dataloader = DataLoader(train_dataset, batch_size=16, shuffle=True, num_workers=4,persistent_workers=True)
 val_dataloader = DataLoader(val_dataset, batch_size=16, shuffle=False, num_workers=4,persistent_workers=True)
 test_dataloader = DataLoader(test_dataset, batch_size=16,shuffle = False)
 
 if __name__ == "__main__":
+    # mp.set_start_method("spawn", force=True)
+
     # Instantiate the models
     cnn_model = MelSpec_CNN_Model()
     mlp_model = Feature_MLP_Model()
@@ -111,7 +129,7 @@ if __name__ == "__main__":
     #Early stopping if val loss doesn't change
     early_stopping = EarlyStopping(
         monitor='val_loss',  # Metric to monitor
-        patience=5,          # Number of epochs to wait without improvement
+        patience=10,          # Number of epochs to wait without improvement
         verbose=True,
         mode='min'           # Minimize 'val_loss'
     )
@@ -127,7 +145,6 @@ if __name__ == "__main__":
 
     logger = TensorBoardLogger("logs/", name="emotion_classification")
 
-
     trainer = Trainer(max_epochs=50, 
                     callbacks=[early_stopping,checkpoint_callback],
                     logger=logger,
@@ -135,11 +152,8 @@ if __name__ == "__main__":
                     devices=1 if torch.cuda.is_available() else None  # Use 1 GPU or CPU
     )
 
-    start_time = time.time()
-    trainer.fit(model, train_dataloader, val_dataloader)
-    end_time = time.time()
 
-    print(f"Training completed in {(end_time - start_time) / 60:.2f} minutes")
+    trainer.fit(model, train_dataloader, val_dataloader)
 
     # Save the final trained model (complete Lightning module)
     trainer.save_checkpoint("final_model.ckpt")
@@ -148,18 +162,3 @@ if __name__ == "__main__":
     # Optionally, save only the model weights
     torch.save(model.state_dict(), "final_model_weights.pth")
     print("Model weights saved to final_model_weights.pth")
-
-    ####************ AFTER TRAINING!!!!*************************::
-
-    # Load the final model from checkpoint
-    # model = CombinedModel.load_from_checkpoint("final_model.ckpt")
-    # model.eval()  # Set the model to evaluation mode
-
-    # Create a new model instance with the same architecture
-    # cnn_model = MelSpec_CNN_Model()
-    # mlp_model = Feature_MLP_Model()
-    # model = CombinedModel(cnn=cnn_model, mlp=mlp_model)
-
-    # # Load the saved weights
-    # model.load_state_dict(torch.load("final_model_weights.pth"))
-    # model.eval()  # Set to evaluation mode

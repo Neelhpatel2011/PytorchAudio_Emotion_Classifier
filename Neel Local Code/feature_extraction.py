@@ -26,11 +26,11 @@ import torch.nn.functional as F
 import torchaudio.transforms as T
 from sklearn.model_selection import train_test_split
 
-import torch.multiprocessing as mp
-mp.set_start_method("spawn", force=True)
-
 from utilities import extract_hnr,extract_mel_spectrogram,extract_mfcc,extract_rms,extract_zero_crossing_rate
 from utilities import load_dataset
+
+import h5py
+
 if torch.cuda.is_available():
     device = "cuda"
 else:
@@ -225,23 +225,25 @@ def process_audio_files_test(data_df, base_path):
 # np.save('Data/training_features_combined.npy', features_train)
 # np.save('Data/training_metadata_combined.npy', metadata_train)
 
-# # # Load testing data
-# # mel_specs_test = np.load('Data/' + 'mel_spectrograms_test.npy')
-# # features_test = np.load('Data/' + 'test_features.npy')
-# # metadata_test = np.load('Data/' + 'test_metadata.npy')
+#Load the training data
+
+mel_specs_train = np.load('Data/'+ 'mel_spectrograms_training_combined.npy')
+features_train = np.load('Data/' + 'training_features_combined.npy')
+metadata_train = np.load('Data/' + 'training_metadata_combined.npy',allow_pickle=True)
+#Load up test and train metadata.csv
 
 
-# Load combined data to test
-mel_specs_combined = np.load('Data/mel_spectrograms_training_combined.npy',allow_pickle=True)
-features_combined = np.load('Data/training_features_combined.npy',allow_pickle=True)
-metadata_combined = np.load('Data/training_metadata_combined.npy',allow_pickle=True)
+# Load testing data
+mel_specs_test = np.load('Data/' + 'mel_spectrograms_test.npy')
+features_test = np.load('Data/' + 'test_features.npy')
+metadata_test = np.load('Data/' + 'test_metadata.npy',allow_pickle=True)
 
-# Print their shapes to verify
-print("Shape of combined Mel spectrograms:", mel_specs_combined.shape)
-print("Shape of combined features:", features_combined.shape)
-print("Number of metadata entries:", len(metadata_combined))
+# Save training data
+with h5py.File('Data/training_data.hdf5', 'w') as hdf:
+    hdf.create_dataset('mel_spectrograms', data=mel_specs_train)
+    hdf.create_dataset('features', data=features_train)
 
-
-# print("Testing Mel Spectrograms Shape:", mel_specs_test.shape)
-# print("Testing Features Shape:", features_test.shape)
-# print("Testing Metadata Shape:", metadata_test.shape)
+# Save test data
+with h5py.File('Data/test_data.hdf5', 'w') as hdf:
+    hdf.create_dataset('mel_spectrograms', data=mel_specs_test)
+    hdf.create_dataset('features', data=features_test)

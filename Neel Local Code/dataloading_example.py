@@ -36,7 +36,7 @@ from sklearn.model_selection import train_test_split
 from utilities import Emotion_Classification_Waveforms
 from modeling import MelSpec_CNN_Model,Feature_MLP_Model,CombinedModel
 
-
+import pickle
 ###########################################################################
 
 #Use GPU acceleration if possible
@@ -69,89 +69,69 @@ SAMPLE_RATE = 24414
 
 if __name__ == "__main__":
 
-    # # Load training data
+    #Load the training data
 
-    # # mel_specs_train = np.load('Data/'+ 'mel_spectrograms_training.npy')
-    # # features_train = np.load('Data/' + 'training_features.npy')
-    # # metadata_train = np.load('Data/' + 'training_metadata.npy')
+    mel_specs_train = np.load('Data/'+ 'mel_spectrograms_training_combined.npy')
+    features_train = np.load('Data/' + 'training_features_combined.npy')
+    metadata_train = np.load('Data/' + 'training_metadata_combined.npy',allow_pickle=True)
 
-    # mel_specs_combined = np.load('Data/mel_spectrograms_training_combined.npy')
-    # features_combined = np.load('Data/training_features_combined.npy')
-    # metadata_combined = np.load('Data/training_metadata_combined.npy')
+    # Load testing data
+    mel_specs_test = np.load('Data/' + 'mel_spectrograms_test.npy')
+    features_test = np.load('Data/' + 'test_features.npy')
+    metadata_test = np.load('Data/' + 'test_metadata.npy',allow_pickle=True)
 
-    # # Load testing data
-    # mel_specs_test = np.load('Data/' + 'mel_spectrograms_test.npy')
-    # features_test = np.load('Data/' + 'test_features.npy')
-    # metadata_test = np.load('Data/' + 'test_metadata.npy')
+    #Train and test waveform dictionaries
 
-    # train_waveforms_dict = {"Mel Spectrogram":mel_specs_combined,
-    #                         "Features":features_combined}
+    train_waveforms_dict = {"Mel Spectrogram":mel_specs_train,
+                            "Features":features_train}
+
+    test_waveforms_dict = {"Mel Spectrogram":mel_specs_test,
+                                "Features":features_test}
+
+    #Train and test metadata dataframes
+    train_metadata_df = pd.DataFrame(metadata_train.tolist())
+    test_metdata_df = pd.DataFrame(metadata_test.tolist())
+
+    full_train_dataset = Emotion_Classification_Waveforms(
+            waveforms_dict=train_waveforms_dict,  # preloaded waveforms dictionary
+            metadata_df=train_metadata_df,        # metadata DataFrame
+            device=device            
+        )
+
+    test_dataset = Emotion_Classification_Waveforms(waveforms_dict=test_waveforms_dict,
+                                                        metadata_df=test_metdata_df,
+                                                        device = device)
+
+
+    # Split the training dataset into training and validation sets
+    train_size = int(0.8 * len(full_train_dataset))  # 80% for training
+    val_size = len(full_train_dataset) - train_size  # Remaining 20% for validation
+    train_dataset, val_dataset = random_split(full_train_dataset, [train_size, val_size])
+
+    # Create DataLoaders for training and validation and testing
+    train_dataloader = DataLoader(train_dataset, batch_size=16, shuffle=True, num_workers=4, persistent_workers=True)
+    val_dataloader = DataLoader(val_dataset, batch_size=16, shuffle=False, num_workers=4,persistent_workers=True)
+    test_dataloader = DataLoader(test_dataset, batch_size=16,shuffle = False)
+  
+    print(train_metadata_df.info())
+
+    for batch in train_dataloader:
+        print("Waveform Data Type:", type(batch['waveform_data']['Mel Spectrogram']), "Shape:", batch['waveform_data']['Mel Spectrogram'].shape)
+        print("Emotion Data Type:", type(batch['emotion']))
+        print("Gender Data Type:", type(batch['gender']))
+
+        print(len(train_dataloader))
+        break  # Stop after the first batch to avoid excessive output
     
-    # test_waveforms_dict = {"Mel Spectrogram":mel_specs_test,
-    #                         "Features":features_test}
-    
-    # train_metadata_df = pd.DataFrame(metadata_combined)
-    # test_metdata_df = pd.DataFrame(metadata_test)
+    # print("Dataset length:", len(full_train_dataset))
+    # print("Sample item:", full_train_dataset[0])
 
-
-    # print(train_metadata_df['Emotion'].unique())
-
-    # start = time.time()
-    # # train_dataloader = load_dataset(train_metadata_df,
-    # #                                 waveforms_preloaded = True,
-    # #                                 waveforms_dict=train_waveforms_dict,
-    # #                                 same_length_all=True,
-    # #                                 sample_rate=SAMPLE_RATE,
-    # #                                 seconds_of_audio=3)
-
-
-    # # Create your custom dataset instance
-    # full_train_dataset = Emotion_Classification_Waveforms(
-    #     waveforms_dict=train_waveforms_dict,  # Your preloaded waveforms dictionary
-    #     metadata_df=train_metadata_df,        # Your metadata DataFrame
-    #     device=device                   # Device (e.g., 'cuda' or 'cpu')
-    # )
-
-    # test_dataset = Emotion_Classification_Waveforms(waveforms_dict=test_waveforms_dict,
-    #                                                 metadata_df=test_metdata_df,
-    #                                                 device = device)
-
-    # # Split the dataset into training and validation sets
-    # train_size = int(0.8 * len(full_train_dataset))  # 80% for training
-    # val_size = len(full_train_dataset) - train_size  # Remaining 20% for validation
-    # train_dataset, val_dataset = random_split(full_train_dataset, [train_size, val_size])
-
-    # # Create DataLoaders for training and validation
-    # train_dataloader = DataLoader(train_dataset, batch_size=16, shuffle=True, num_workers=4)
-    # val_dataloader = DataLoader(val_dataset, batch_size=16, shuffle=False, num_workers=4)
-
-    # test_dataloader = DataLoader(test_dataset, batch_size=16,shuffle = False)
-
-
-    # # Iterate through DataLoader
-    # for batch in tqdm(train_dataloader):
-    #     waveform_features = batch['waveform_data']
-    #     emotions = batch['emotion']
-    #     genders = batch['gender']
-    #     print(waveform_features['Mel Spectrogram'].shape,
-    #           waveform_features['Features'].shape, 
-    #           emotions, 
-    #           genders)  
-    #     #print(emotions,genders)
-        
-
-    # print(f"DataLoader initialization took: {time.time() - start:.2f} seconds")
-
-
-
-    #Testing the model out!
-
-    model = MelSpec_CNN_Model(input_channels=1)
-    dummy_input = torch.zeros(4, 1, 64, 144)
-    output = model(dummy_input)
-    print("Output shape:", output.shape)
-
-
+    for i in range(len(train_dataset)):
+        sample = train_dataset[i]
+        try:
+            pickle.dumps(sample)
+        except Exception as e:
+            print(f"Sample {i} is not picklable: {e}")
 
 
 

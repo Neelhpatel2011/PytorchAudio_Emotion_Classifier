@@ -32,9 +32,6 @@ from torchmetrics import Accuracy, Precision, Recall, F1Score
 
 from sklearn.model_selection import train_test_split
 
-import torch.multiprocessing as mp
-mp.set_start_method("spawn", force=True)
-
 #Build the model for CNN and MLP
 
 # class MelSpec_CNN_Model(pl.LightningModule):
@@ -103,7 +100,7 @@ class MelSpec_CNN_Model(pl.LightningModule):
         # Define 8 convolutional blocks
         self.blocks = nn.ModuleList()
         in_channels = input_channels
-        out_channels_list = [64, 128, 256, 256, 512]  # Channels for each block
+        out_channels_list = [64, 128, 256, 256, 512, 512, 512]  # Channels for each block
 
         for out_channels in out_channels_list:
             self.blocks.append(
