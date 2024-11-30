@@ -89,7 +89,6 @@ class MelSpec_CNN_Model(pl.LightningModule):
 class Feature_MLP_Model(pl.LightningModule):
     def __init__(self, input_size=302):
         super(Feature_MLP_Model, self).__init__()
-        self.layer_norm = nn.LayerNorm(input_size)
         self.fc1 = nn.Linear(input_size, 256)
         self.bn1 = nn.BatchNorm1d(256)
         self.fc2 = nn.Linear(256, 128)
@@ -101,7 +100,6 @@ class Feature_MLP_Model(pl.LightningModule):
         self.dropout = nn.Dropout(0.3)
 
     def forward(self, x):
-        #x = self.layer_norm(x)
         x = F.relu(self.bn1(self.fc1(x)))
         x = self.dropout(x)
         x = F.relu(self.bn2(self.fc2(x)))
