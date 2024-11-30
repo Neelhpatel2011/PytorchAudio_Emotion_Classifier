@@ -1,1 +1,4 @@
 Data/
+logs/
+checkpoints/
+.pth
