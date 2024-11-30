@@ -299,7 +299,3 @@ with h5py.File('Data/test_data_no_sur.hdf5', 'w') as hdf:
     hdf.create_dataset('features', data=features_test)
 
 
-
-# I want to use the existing hdf5 files and compute the normalization statistics on those:
-
-

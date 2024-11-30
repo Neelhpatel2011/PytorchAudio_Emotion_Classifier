@@ -141,6 +141,28 @@ print(f"F1 Score: {f1:.4f}")
 
 print(test_metadata_df['Emotion'].unique())
 
+#######################VISUALIZATIONS!#########################
+
+from torchview import draw_graph
+
+# Move your model to the appropriate device
+model.to(device)
+
+# Define input sizes (excluding batch size)
+input_size = [(1, 128, 573), (302,)]  # For Mel Spectrogram and Features
+
+# Generate the model graph
+model_graph = draw_graph(
+    model, 
+    input_size=input_size, 
+    expand_nested=True, 
+    device=device
+)
+
+# Save the visualization
+model_graph.visual_graph.render('model_architecture', format='png')
+
+
 # Visualize confusion matrix
 plt.figure(figsize=(10, 8))
 sns.heatmap(conf_matrix.cpu().numpy(), annot=True, fmt='d', cmap='Blues')
