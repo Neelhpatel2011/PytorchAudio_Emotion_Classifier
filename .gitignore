@@ -2,4 +2,4 @@ Data/
 logs/
 checkpoints/
 *.pth
-*.ckt
+*.ckpt
