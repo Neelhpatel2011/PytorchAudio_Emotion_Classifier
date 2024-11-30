@@ -1,4 +1,5 @@
 Data/
 logs/
 checkpoints/
-.pth
+*.pth
+*.ckt
