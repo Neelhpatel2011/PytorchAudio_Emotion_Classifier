@@ -38,8 +38,6 @@ from utilities import Emotion_Classification_Waveforms
 from modeling import MelSpec_CNN_Model,Feature_MLP_Model,CombinedModel
 import torch.multiprocessing as mp
 
-import h5py
-
 ###########################################################################
 
 #Use GPU acceleration if possible
@@ -56,26 +54,22 @@ torch.manual_seed(SEED)
 torch.cuda.manual_seed(SEED)  # If using CUDA
 SAMPLE_RATE = 24414
 
-#Load the training data
-
-mel_specs_train = np.load('Data/'+ 'mel_spectrograms_training_combined.npy')
-features_train = np.load('Data/' + 'training_features_combined.npy')
-metadata_train = np.load('Data/' + 'training_metadata_combined.npy',allow_pickle=True)
-#Load up test and train metadata.csv
-
-
-# Load testing data
-mel_specs_test = np.load('Data/' + 'mel_spectrograms_test.npy')
-features_test = np.load('Data/' + 'test_features.npy')
-metadata_test = np.load('Data/' + 'test_metadata.npy',allow_pickle=True)
+#Load metadatas for train,val,test
+metadata_train = np.load('Data/' + 'training_metadata_no_sur_no_aug.npy',allow_pickle=True)
+metadata_val = np.load('Data/' + 'validation_metadata_no_sur_no_aug.npy',allow_pickle=True)
+#metadata_test = np.load('Data/' + 'test_metadata.npy', allow_pickle=True)
 
 #Load HDF5 format files 
-train_hdf5_file = 'Data/training_data.hdf5'
-test_hdf5_file = 'Data/test_data.hdf5'
+train_hdf5_file = 'Data/training_data_no_sur_no_aug_normalized.hdf5'
+val_hdf5_file = 'Data/validation_data_no_sur_no_aug_normalized.hdf5'
+#test_hdf5_file = 'Data/test_data.hdf5'
 
-#Train and test metadata dataframes
-train_metadata_df = pd.DataFrame(metadata_train.tolist())
-test_metadata_df = pd.DataFrame(metadata_test.tolist())
+train_metadata_df = pd.DataFrame(metadata_train)
+val_metadata_df = pd.DataFrame(metadata_val)
+#test_metadata_df = pd.DataFrame(metadata_test)
+
+# #take out surprised category for now (TEMPORARY!)
+# val_metadata_df = val_metadata_df.loc[val_metadata_df['Emotion'] != 'surprised']
 
 # Create datasets
 full_train_dataset = Emotion_Classification_Waveforms(
@@ -83,37 +77,14 @@ full_train_dataset = Emotion_Classification_Waveforms(
     metadata_df=train_metadata_df
 )
 
-test_dataset = Emotion_Classification_Waveforms(
-    hdf5_file_path=test_hdf5_file,
-    metadata_df=test_metadata_df
+val_dataset = Emotion_Classification_Waveforms(
+    hdf5_file_path = val_hdf5_file,
+    metadata_df=val_metadata_df
 )
 
-# #Train and test waveform dictionaries
-
-# train_waveforms_dict = {"Mel Spectrogram":mel_specs_train,
-#                         "Features":features_train}
-
-# test_waveforms_dict = {"Mel Spectrogram":mel_specs_test,
-#                             "Features":features_test}
-
-# full_train_dataset = Emotion_Classification_Waveforms(
-#         waveforms_dict=train_waveforms_dict,  # preloaded waveforms dictionary
-#         metadata_df=train_metadata_df       
-#     )
-
-# test_dataset = Emotion_Classification_Waveforms(waveforms_dict=test_waveforms_dict,
-#                                                     metadata_df=test_metadata_df)
-
-
-# Split the training dataset into training and validation sets
-train_size = int(0.8 * len(full_train_dataset))  # 80% for training
-val_size = len(full_train_dataset) - train_size  # Remaining 20% for validation
-train_dataset, val_dataset = random_split(full_train_dataset, [train_size, val_size])
-
 # Create DataLoaders for training and validation and testing
-train_dataloader = DataLoader(train_dataset, batch_size=16, shuffle=True, num_workers=4,persistent_workers=True)
+train_dataloader = DataLoader(full_train_dataset, batch_size=16, shuffle=True, num_workers=4,persistent_workers=True)
 val_dataloader = DataLoader(val_dataset, batch_size=16, shuffle=False, num_workers=4,persistent_workers=True)
-test_dataloader = DataLoader(test_dataset, batch_size=16,shuffle = False)
 
 if __name__ == "__main__":
     # mp.set_start_method("spawn", force=True)
@@ -129,7 +100,7 @@ if __name__ == "__main__":
     #Early stopping if val loss doesn't change
     early_stopping = EarlyStopping(
         monitor='val_loss',  # Metric to monitor
-        patience=10,          # Number of epochs to wait without improvement
+        patience=5,          # Number of epochs to wait without improvement
         verbose=True,
         mode='min'           # Minimize 'val_loss'
     )
@@ -149,7 +120,8 @@ if __name__ == "__main__":
                     callbacks=[early_stopping,checkpoint_callback],
                     logger=logger,
                     accelerator="gpu" if torch.cuda.is_available() else "cpu",
-                    devices=1 if torch.cuda.is_available() else None  # Use 1 GPU or CPU
+                    devices=1 if torch.cuda.is_available() else None,  # Use 1 GPU or CPU
+                    gradient_clip_val=1.0
     )
 
 

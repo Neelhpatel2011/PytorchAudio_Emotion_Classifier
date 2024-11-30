@@ -1,5 +1,5 @@
 # Import packages!
-
+#%%
 import os
 import shutil
 from zipfile import ZipFile
@@ -148,8 +148,8 @@ def process_audio_files_test(data_df, base_path):
         })
     return np.array(mel_spectrograms_list), np.array(features_list), metadata_list
 
-
-# #Get the augmented_surprised_samples!
+#%%
+#Get the augmented_surprised_samples!
 
 # data_path = 'Data/metadata-and-augmentations/'
 # augmented_surprised_df = pd.read_csv(data_path+'augmented_surprised_df.csv')
@@ -166,50 +166,82 @@ def process_audio_files_test(data_df, base_path):
 # np.save(r'Data/surprised_metadata.npy', metadata_surprised_array)
 
 
-# #Get the training features
-# data_path = 'Data/metadata-and-augmentations/'
-# augmented_training_df = pd.read_csv(data_path+'augmented_training_df.csv')
+#Get the training features
 
-# mel_specs_train, features_train, metadata_train = process_audio_files_train(augmented_training_df, data_path)
+data_path = 'Data/metadata-and-augmentations/'
+augmented_training_df = pd.read_csv(data_path+'augmented_training_df.csv')
 
-# metadata_train_array = np.array([
-#     (meta['Filename'], meta['Filepath'], meta['Gender'], meta['Emotion'])
-#     for meta in metadata_train
-# ], dtype=[('Filename', 'U256'), ('Filepath', 'U256'), ('Gender', 'U10'), ('Emotion', 'U10')])
+#THESE ARE AUGMENTED BUT DO NOT HAVE SURPRISED!
+mel_specs_train, features_train, metadata_train = process_audio_files_train(augmented_training_df, data_path)
 
-# np.save(r'Data/mel_spectrograms_training.npy', mel_specs_train)
-# np.save(r'Data/training_features.npy', features_train)
-# np.save(r'Data/training_metadata.npy', metadata_train_array)
+metadata_train_array = np.array([
+    (meta['Filename'], meta['Filepath'], meta['Gender'], meta['Emotion'])
+    for meta in metadata_train
+], dtype=[('Filename', 'U256'), ('Filepath', 'U256'), ('Gender', 'U10'), ('Emotion', 'U10')])
 
+np.save(r'Data/mel_spectrograms_training_no_sur.npy', mel_specs_train)
+np.save(r'Data/training_features_no_sur.npy', features_train)
+np.save(r'Data/training_metadata_no_sur.npy', metadata_train_array)
 
+#%%
+os.chdir(r'C:\Users\Neel Patel\Documents\Github Repositories\PytorchAudio_Emotion_Classifier')
+data_path = 'Data/metadata-and-augmentations/'
+#Get the validation features (unaugmented training 20%)
+val_training_df = pd.read_csv(data_path+'training_df.csv')
 
-# #Get the testing features
+#GET RID OF THE SURPRISED CATEGORY!
+val_training_df = val_training_df.loc[val_training_df['Emotion'] != 'surprised']
 
-# testing_df = pd.read_csv(data_path+'testing_df.csv')
-# mel_specs_test, features_test, metadata_test= process_audio_files_test(testing_df, data_path)
+#Get random 20% of this data with equal balance of emotions!
+#Function to sample 20% of data with equal balance of emotions
+def sample_balanced(df, fraction=0.2):
+    # Group by Emotion
+    grouped = df.groupby('Emotion')
 
-# metadata_test_array = np.array([
-#     (meta['Filename'], meta['Filepath'], meta['Gender'], meta['Emotion'])
-#     for meta in metadata_test
-# ], dtype=[('Filename', 'U256'), ('Filepath', 'U256'), ('Gender', 'U10'), ('Emotion', 'U10')])
+    # Sample fraction of each group and concatenate
+    sampled_df = grouped.apply(lambda x: x.sample(frac=fraction, random_state=SEED)).reset_index(drop=True)
+    return sampled_df
 
-# np.save(r'Data/mel_spectrograms_test.npy', mel_specs_test)
-# np.save(r'Data/test_features.npy', features_test)
-# np.save(r'Data/test_metadata.npy', metadata_test_array)
+# Get the validation dataset
+val_training_df = sample_balanced(val_training_df, fraction=0.2)
 
+mel_specs_val, features_val, metadata_val = process_audio_files_test(val_training_df, data_path)
 
-# # #Load the data and test it out
+metadata_val = np.array([
+    (meta['Filename'], meta['Filepath'], meta['Gender'], meta['Emotion'])
+    for meta in metadata_val
+], dtype=[('Filename', 'U256'), ('Filepath', 'U256'), ('Gender', 'U10'), ('Emotion', 'U10')])
 
-# # mel_specs_surprised = np.load('Data/'+ 'mel_spectrograms_surprised.npy')
-# # features_surprised = np.load('Data/' + 'surprised_features.npy')
-# # metadata_surprised = np.load('Data/' + 'surprised_metadata.npy')
+np.save(r'Data/mel_spectrograms_val_no_sur.npy', mel_specs_val)
+np.save(r'Data/val_features_no_sur.npy', features_val)
+np.save(r'Data/val_metadata_no_sur.npy', metadata_val)
 
-# # # Load training data
-# # mel_specs_train = np.load('Data/'+ 'mel_spectrograms_training.npy')
-# # features_train = np.load('Data/' + 'training_features.npy')
-# # metadata_train = np.load('Data/' + 'training_metadata.npy')
+#Get the testing features
 
-# #Combined surprised and existing training and save again!
+testing_df = pd.read_csv(data_path+'testing_df.csv')
+mel_specs_test, features_test, metadata_test= process_audio_files_test(testing_df, data_path)
+
+metadata_test_array = np.array([
+    (meta['Filename'], meta['Filepath'], meta['Gender'], meta['Emotion'])
+    for meta in metadata_test
+], dtype=[('Filename', 'U256'), ('Filepath', 'U256'), ('Gender', 'U10'), ('Emotion', 'U10')])
+
+np.save(r'Data/mel_spectrograms_test.npy', mel_specs_test)
+np.save(r'Data/test_features.npy', features_test)
+np.save(r'Data/test_metadata.npy', metadata_test_array)
+
+# #Load the data and test it out
+
+# mel_specs_surprised = np.load('Data/'+ 'mel_spectrograms_surprised.npy')
+# features_surprised = np.load('Data/' + 'surprised_features.npy')
+# metadata_surprised = np.load('Data/' + 'surprised_metadata.npy')
+
+# # Load training data
+# mel_specs_train = np.load('Data/'+ 'mel_spectrograms_training.npy')
+# features_train = np.load('Data/' + 'training_features.npy')
+# metadata_train = np.load('Data/' + 'training_metadata.npy')
+
+#Combined surprised and existing training and save again!
 
 # # Concatenate Mel spectrograms
 # mel_specs_train = np.concatenate((mel_specs_train, mel_specs_surprised), axis=0)
@@ -225,25 +257,49 @@ def process_audio_files_test(data_df, base_path):
 # np.save('Data/training_features_combined.npy', features_train)
 # np.save('Data/training_metadata_combined.npy', metadata_train)
 
-#Load the training data
+# #Load the training data
 
-mel_specs_train = np.load('Data/'+ 'mel_spectrograms_training_combined.npy')
-features_train = np.load('Data/' + 'training_features_combined.npy')
-metadata_train = np.load('Data/' + 'training_metadata_combined.npy',allow_pickle=True)
+# mel_specs_train = np.load('Data/'+ 'mel_spectrograms_training_combined.npy')
+# features_train = np.load('Data/' + 'training_features_combined.npy')
+# metadata_train = np.load('Data/' + 'training_metadata_combined.npy',allow_pickle=True)
 #Load up test and train metadata.csv
 
 
-# Load testing data
-mel_specs_test = np.load('Data/' + 'mel_spectrograms_test.npy')
-features_test = np.load('Data/' + 'test_features.npy')
-metadata_test = np.load('Data/' + 'test_metadata.npy',allow_pickle=True)
+# # Load testing data
+# mel_specs_test = np.load('Data/' + 'mel_spectrograms_test.npy')
+# features_test = np.load('Data/' + 'test_features.npy')
+# metadata_test = np.load('Data/' + 'test_metadata.npy',allow_pickle=True)
+
+#delete previous hdf5 files
+
+file_path = 'Data/training_data_no_sur.hdf5'
+if os.path.exists(file_path):
+    os.remove(file_path)
+
+file_path = 'Data/validation_data_no_sur.hdf5'
+if os.path.exists(file_path):
+    os.remove(file_path)
+
+file_path = 'Data/test_data_no_sur.hdf5'
+if os.path.exists(file_path):
+    os.remove(file_path)
 
 # Save training data
-with h5py.File('Data/training_data.hdf5', 'w') as hdf:
+with h5py.File('Data/training_data_no_sur.hdf5', 'w') as hdf:
     hdf.create_dataset('mel_spectrograms', data=mel_specs_train)
     hdf.create_dataset('features', data=features_train)
 
+with h5py.File('Data/validation_data_no_sur.hdf5', 'w') as hdf:
+    hdf.create_dataset('mel_spectrograms', data=mel_specs_val)
+    hdf.create_dataset('features', data=features_val)
+
 # Save test data
-with h5py.File('Data/test_data.hdf5', 'w') as hdf:
+with h5py.File('Data/test_data_no_sur.hdf5', 'w') as hdf:
     hdf.create_dataset('mel_spectrograms', data=mel_specs_test)
     hdf.create_dataset('features', data=features_test)
+
+
+
+# I want to use the existing hdf5 files and compute the normalization statistics on those:
+
+

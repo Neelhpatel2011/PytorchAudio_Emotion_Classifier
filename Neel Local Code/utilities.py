@@ -224,6 +224,8 @@ class Emotion_Classification_Waveforms(Dataset):
             # Each worker process must open its own file handle
             self.hdf5_file = h5py.File(self.hdf5_file_path, 'r')
 
+        original_idx = self.metadata_df.index[idx]
+
         emotion_mapping = {
             "neutral": 0, "happy": 1, "sad": 2, "angry": 3,
             "fear": 4, "disgust": 5, "surprised": 6
@@ -238,8 +240,14 @@ class Emotion_Classification_Waveforms(Dataset):
         gender_tensor = torch.tensor(gender_mapping[gender_label])
 
        # Access data from the HDF5 file
-        mel_spec = self.hdf5_file['mel_spectrograms'][idx]
-        features = self.hdf5_file['features'][idx]
+        mel_spec = self.hdf5_file['mel_spectrograms'][original_idx]
+        features = self.hdf5_file['features'][original_idx]
+
+         #Check for NaNs or Infs
+        if np.isnan(mel_spec).any() or np.isinf(mel_spec).any():
+            print(f"NaN or Inf detected in mel_spectrogram at index {idx}")
+        if np.isnan(features).any() or np.isinf(features).any():
+            print(f"NaN or Inf detected in features at index {idx}")
 
         # Process mel_spec
         mel_spec_db = mel_spec_to_db(mel_spec_array=mel_spec)
@@ -330,7 +338,7 @@ def mel_spec_to_db(mel_spec_array, multiplier=10.0, amin=1e-6, db_multiplier=0.0
 # Function to compute MFCC features
 def extract_mfcc(waveform, sample_rate = 24414, n_mfcc=13, melkwargs = {"n_fft": 1024, "hop_length": 512, "n_mels": 64}):
     mfcc_transform = torchaudio.transforms.MFCC(
-        sample_ratAe=sample_rate, n_mfcc=n_mfcc, melkwargs=melkwargs).to(waveform.device)  # Move transform to device (CPU or GPU)
+        sample_rate=sample_rate, n_mfcc=n_mfcc, melkwargs=melkwargs).to(waveform.device)  # Move transform to device (CPU or GPU)
     mfccs = mfcc_transform(waveform).float()
     mfccs = torch.mean(mfccs, dim = 2)
     return mfccs
@@ -351,8 +359,24 @@ def extract_hnr(waveform):
 
     harmonic = librosa.effects.harmonic(y=waveform)
     percussive = librosa.effects.percussive(y=waveform)
-    hnr_mean = torch.tensor(np.mean(harmonic / (percussive + 1e-6)),dtype=torch.float32, device='cuda' if torch.cuda.is_available() else 'cpu').unsqueeze(0)
-    return hnr_mean
+
+    # Handle cases where the percussive array has zeros or near-zero values
+    safe_percussive = np.where(percussive < 1e-6, 1e-6, percussive)
+
+    # Calculate HNR as the mean ratio of harmonic to percussive components
+    hnr_mean = np.mean(harmonic / safe_percussive)
+
+    # Ensure HNR is non-negative
+    hnr_mean = max(0.0, hnr_mean)
+
+    # Convert the result to a PyTorch tensor and return
+    hnr_mean_tensor = torch.tensor(
+        hnr_mean,
+        dtype=torch.float32,
+        device='cuda' if torch.cuda.is_available() else 'cpu'
+    ).unsqueeze(0)
+
+    return hnr_mean_tensor
 
 def extract_rms(waveform):
     waveform = waveform.detach().cpu().numpy()

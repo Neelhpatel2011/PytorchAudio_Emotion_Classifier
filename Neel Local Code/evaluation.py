@@ -53,50 +53,44 @@ SAMPLE_RATE = 24414
 
 
 # Load testing data
-mel_specs_test = np.load('Data/' + 'mel_spectrograms_test.npy')
-features_test = np.load('Data/' + 'test_features.npy')
-metadata_test = np.load('Data/' + 'test_metadata.npy',allow_pickle=True)
+metadata_test = np.load('Data/' + 'test_metadata_no_sur_no_aug.npy', allow_pickle=True)
 
-test_hdf5_file = 'Data/test_data.hdf5'
+test_hdf5_file = 'Data/test_data_no_sur_no_aug_normalized.hdf5'
 test_metadata_df = pd.DataFrame(metadata_test)
+
+#take out surprised category for now (TEMPORARY!)
+test_metadata_df = test_metadata_df.loc[test_metadata_df['Emotion'] != 'surprised']
 
 test_dataset = Emotion_Classification_Waveforms(
     hdf5_file_path=test_hdf5_file,
     metadata_df=test_metadata_df
 )
 
-# test_waveforms_dict = {"Mel Spectrogram":mel_specs_test,
-#                             "Features":features_test}
-
-
-
-# test_dataset = Emotion_Classification_Waveforms(waveforms_dict=test_waveforms_dict,
-#                                                     metadata_df=test_metdata_df,
-#                                                     device = device)
-
-test_dataloader = DataLoader(test_dataset, batch_size=16, shuffle = False)
+test_dataloader = DataLoader(test_dataset, batch_size=16, shuffle = True)
 
 #Create a new model instance with the same architecture
 cnn_model = MelSpec_CNN_Model()
 mlp_model = Feature_MLP_Model()
 model = CombinedModel(cnn=cnn_model, mlp=mlp_model)
 
-# # Load the final model from checkpoint
-# model = CombinedModel.load_from_checkpoint("final_model.ckpt",cnn=cnn_model,mlp=mlp_model)
-# model.eval() 
-# model.to(device)
-
-#Load the saved weights (Optionally!)
-model.load_state_dict(torch.load("final_model_weights.pth"))
+# Load the final model from checkpoint
+model = CombinedModel.load_from_checkpoint("final_model.ckpt",cnn=cnn_model,mlp=mlp_model)
 model.eval() 
 model.to(device)
 
+# #Load the saved weights (Optionally!)
+# model.load_state_dict(torch.load("final_model_weights.pth"))
+# model.eval() 
+# model.to(device)
+
+num_classes = 6
+
 # Metrics initialization
-accuracy_metric = Accuracy(task="multiclass", num_classes=7).to(device)
-precision_metric = Precision(task="multiclass", average='macro', num_classes=7).to(device)
-recall_metric = Recall(task="multiclass", average='macro', num_classes=7).to(device)
-f1_metric = F1Score(task="multiclass", average='macro', num_classes=7).to(device)
-confusion_matrix = ConfusionMatrix(task="multiclass", num_classes=7).to(device)
+accuracy_metric = Accuracy(task="multiclass", num_classes=num_classes).to(device)
+precision_metric = Precision(task="multiclass", average='macro', num_classes=num_classes).to(device)
+recall_metric = Recall(task="multiclass", average='macro', num_classes=num_classes).to(device)
+f1_metric = F1Score(task="multiclass", average='macro', num_classes=num_classes).to(device)
+confusion_matrix = ConfusionMatrix(task="multiclass", num_classes=num_classes).to(device)
 
 # Initialize accumulators for loss and metrics
 criterion = torch.nn.CrossEntropyLoss()  # Define loss function
@@ -144,6 +138,8 @@ print(f"Accuracy: {accuracy:.4f}")
 print(f"Precision: {precision:.4f}")
 print(f"Recall: {recall:.4f}")
 print(f"F1 Score: {f1:.4f}")
+
+print(test_metadata_df['Emotion'].unique())
 
 # Visualize confusion matrix
 plt.figure(figsize=(10, 8))

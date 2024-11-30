@@ -34,72 +34,15 @@ from sklearn.model_selection import train_test_split
 
 #Build the model for CNN and MLP
 
-# class MelSpec_CNN_Model(pl.LightningModule):
-#     def __init__(self, input_channels=1):
-#         super(MelSpec_CNN_Model, self).__init__()
-#         self.conv1 = nn.Conv2d(input_channels, 32, kernel_size=(3, 3), padding=1)
-#         self.bn1 = nn.BatchNorm2d(32)
-#         self.conv2 = nn.Conv2d(32, 64, kernel_size=(3, 3), padding=1)
-#         self.bn2 = nn.BatchNorm2d(64)
-#         self.conv3 = nn.Conv2d(64, 128, kernel_size=(3, 3), padding=1)
-#         self.bn3 = nn.BatchNorm2d(128)
-#         self.pool = nn.MaxPool2d(kernel_size=(2, 2))
-#         self.conv4 = nn.Conv2d(128, 256, kernel_size=(3, 3), padding=1)
-#         self.bn4 = nn.BatchNorm2d(256)
-#         self.conv5 = nn.Conv2d(256, 512, kernel_size=(3, 3), padding=1)
-#         self.bn5 = nn.BatchNorm2d(512)
-#         self.dropout = nn.Dropout(0.2)
-#         self.flatten = nn.Flatten()
-#         self.fc = nn.Linear(512 * (64 // 32) * (144 // 32), 256)  # Adjust based on the output dimensions
-#         self.fc1 = nn.Linear(256, 128)
-#         self.bn_fc1 = nn.BatchNorm1d(128)
-#         self.fc2 = nn.Linear(128, 64)
-
-        
-#     def forward(self, x):
-#         # Pass through convolutional layers
-#         x = F.relu(self.bn1(self.conv1(x)))
-#         x = self.pool(x)
-#         x = self.dropout(x)
-
-#         x = F.relu(self.bn2(self.conv2(x)))
-#         x = self.pool(x)
-#         x = self.dropout(x)
-
-#         x = F.relu(self.bn3(self.conv3(x)))
-#         x = self.pool(x)
-#         x = self.dropout(x)
-
-#         x = F.relu(self.bn4(self.conv4(x)))
-#         x = self.pool(x)
-#         x = self.dropout(x)
-
-#         x = F.relu(self.bn5(self.conv5(x)))
-#         x = self.pool(x)
-#         x = self.dropout(x)
-
-#         # Flatten the output
-#         x = self.flatten(x)
-
-#         # Dynamically set `self.fc` on the first forward pass
-#         if isinstance(self.fc, nn.Identity):  # Check if it's still a placeholder
-#             self.fc = nn.Linear(x.size(1), 256).to(x.device)
-
-#         # Fully connected layers
-#         x = F.relu(self.fc(x))
-#         x = F.relu(self.bn_fc1(self.fc1(x)))
-#         x = self.fc2(x)
-#         return x
-
-
 class MelSpec_CNN_Model(pl.LightningModule):
-    def __init__(self, input_channels=1, dropout_rate=0.2):
+    def __init__(self, input_channels=1, dropout_rate=0.3):
         super(MelSpec_CNN_Model, self).__init__()
         self.dropout_rate = dropout_rate
 
         # Define 8 convolutional blocks
         self.blocks = nn.ModuleList()
         in_channels = input_channels
+        #out_channels_list = [64,128,256, 512]
         out_channels_list = [64, 128, 256, 256, 512, 512, 512]  # Channels for each block
 
         for out_channels in out_channels_list:
@@ -146,17 +89,19 @@ class MelSpec_CNN_Model(pl.LightningModule):
 class Feature_MLP_Model(pl.LightningModule):
     def __init__(self, input_size=302):
         super(Feature_MLP_Model, self).__init__()
+        self.layer_norm = nn.LayerNorm(input_size)
         self.fc1 = nn.Linear(input_size, 256)
         self.bn1 = nn.BatchNorm1d(256)
         self.fc2 = nn.Linear(256, 128)
         self.bn2 = nn.BatchNorm1d(128)
         self.fc3 = nn.Linear(128, 64)
         self.bn3 = nn.BatchNorm1d(64)
-        self.fc4= nn.Linear(64,32)
-        self.bn4 = nn.BatchNorm1d(32)
-        self.dropout = nn.Dropout(0.2)
+        self.fc4= nn.Linear(64,64)
+        self.bn4 = nn.BatchNorm1d(64)
+        self.dropout = nn.Dropout(0.3)
 
     def forward(self, x):
+        #x = self.layer_norm(x)
         x = F.relu(self.bn1(self.fc1(x)))
         x = self.dropout(x)
         x = F.relu(self.bn2(self.fc2(x)))
@@ -167,15 +112,15 @@ class Feature_MLP_Model(pl.LightningModule):
         return x
 
 class CombinedModel(pl.LightningModule):
-    def __init__(self, cnn, mlp, num_classes=7, learning_rate=1e-3, dropout_rate=0.2):
+    def __init__(self, cnn, mlp, num_classes=6, learning_rate=1e-3, dropout_rate=0.3):
         super(CombinedModel, self).__init__()
         self.cnn = cnn
         self.mlp = mlp
-        self.fc1 = nn.Linear(96, 64)  # Combining CNN (64) + MLP (32)
+        self.fc1 = nn.Linear(128, 64)  # Combining CNN (64) + MLP (64) = 128
         self.bn1 = nn.BatchNorm1d(64)
-        self.fc2 = nn.Linear(64, 32)
-        self.bn2 = nn.BatchNorm1d(32)
-        self.fc3 = nn.Linear(32,num_classes)
+        self.fc2 = nn.Linear(64, 64)
+        self.bn2 = nn.BatchNorm1d(64)
+        self.fc3 = nn.Linear(64,num_classes)
 
         self.learning_rate = learning_rate
         self.dropout_rate = dropout_rate
@@ -200,12 +145,14 @@ class CombinedModel(pl.LightningModule):
         return x
 
     def training_step(self, batch, batch_idx):
-        mel_spec = batch['waveform_data']['Mel Spectrogram']  # Shape [B, 64, 144]
+        mel_spec = batch['waveform_data']['Mel Spectrogram']  # Shape [B, nmels, frequencies]
         features = batch['waveform_data']['Features']  # Shape [B, 302]
         labels = batch['emotion']
         output = self(mel_spec, features)
         loss = F.cross_entropy(output, labels)
         self.log('train_loss', loss)
+        if torch.isnan(loss):
+            print(f"NaN detected in training loss at batch {batch_idx}")
         return loss
 
     def validation_step(self, batch, batch_idx):
@@ -215,6 +162,15 @@ class CombinedModel(pl.LightningModule):
 
         # Forward pass
         output = self(mel_spec, features)
+
+         # Check for NaNs in outputs
+        if torch.isnan(output).any() or torch.isinf(output).any():
+            self.logger.experiment.add_text('Validation NaN', f'NaN detected in outputs at batch {batch_idx}')
+            print(f"NaN detected in outputs at batch {batch_idx}")
+            # Optionally, save the problematic inputs for further inspection
+            torch.save(mel_spec, f'problematic_inputs_{batch_idx}.pt')
+            torch.save(features, f'problematic_features_{batch_idx}.pt')
+
         loss = F.cross_entropy(output, labels)
 
         # Compute predictions
@@ -250,7 +206,7 @@ class CombinedModel(pl.LightningModule):
         self.f1.reset()
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=1e-3)
+        optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
 
         #Use a scheduler that reduces when it hits a plateau!
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=5)
