@@ -51,7 +51,6 @@ torch.manual_seed(SEED)
 torch.cuda.manual_seed(SEED)  # If using CUDA
 SAMPLE_RATE = 24414
 
-
 # Load testing data
 metadata_test = np.load('Data/' + 'test_metadata_no_sur_no_aug.npy', allow_pickle=True)
 
@@ -143,24 +142,7 @@ print(test_metadata_df['Emotion'].unique())
 
 #######################VISUALIZATIONS!#########################
 
-from torchview import draw_graph
 
-# Move your model to the appropriate device
-model.to(device)
-
-# Define input sizes (excluding batch size)
-input_size = [(1, 128, 573), (302,)]  # For Mel Spectrogram and Features
-
-# Generate the model graph
-model_graph = draw_graph(
-    model, 
-    input_size=input_size, 
-    expand_nested=True, 
-    device=device
-)
-
-# Save the visualization
-model_graph.visual_graph.render('model_architecture', format='png')
 
 
 # Visualize confusion matrix
