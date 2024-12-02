@@ -3,3 +3,4 @@ logs/emotion_classification
 checkpoints/
 *.pth
 *.ckpt
+*.zip
