@@ -42,7 +42,6 @@ class MelSpec_CNN_Model(pl.LightningModule):
         # Define 8 convolutional blocks
         self.blocks = nn.ModuleList()
         in_channels = input_channels
-        #out_channels_list = [64,128,256, 512]
         out_channels_list = [64, 128, 256, 256, 512, 512, 512]  # Channels for each block
 
         for out_channels in out_channels_list:
@@ -89,6 +88,7 @@ class MelSpec_CNN_Model(pl.LightningModule):
 class Feature_MLP_Model(pl.LightningModule):
     def __init__(self, input_size=302):
         super(Feature_MLP_Model, self).__init__()
+        self.layer_norm = nn.LayerNorm(input_size)
         self.fc1 = nn.Linear(input_size, 256)
         self.bn1 = nn.BatchNorm1d(256)
         self.fc2 = nn.Linear(256, 128)
